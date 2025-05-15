@@ -1,0 +1,24 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Notebook
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# Streamlit secrets
+.streamlit/secrets.toml*.pyc
+__pycache__/
+.DS_Store
+.env
+*.log
+venv/
+.idea/
+.vscode/
+.streamlit/secrets.toml
+
+# Docker environment files
+docker/*.env
+
+node_modules/
+.langgrah_api/
