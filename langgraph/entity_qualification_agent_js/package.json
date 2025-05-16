@@ -25,8 +25,7 @@
     "@langchain/google-webauth": "^0.2.9",
     "@langchain/langgraph": "^0.2.57",
     "@langchain/langgraph-cli": "^0.0.34",
-    "langchain": "^0.3.14",
-    "zod": "^3.24.4"
+    "langchain": "^0.3.14"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",

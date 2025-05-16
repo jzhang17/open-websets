@@ -108,7 +108,7 @@ const batchWebSearch = new DynamicStructuredTool({
       "Content-Type": "application/json",
     };
 
-    const batchRequest = queries.map((query) => ({
+    const batchRequest = queries.map((query: string) => ({
       query: query,
       search_service: "google",
       max_results: 10,
