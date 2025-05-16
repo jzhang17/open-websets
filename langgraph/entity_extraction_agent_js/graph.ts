@@ -91,7 +91,7 @@ function routeModelOutput(state: AppState): string {
   const messages = state.messages;
   const lastMessage = messages[messages.length - 1];
   // If the LLM is invoking tools, route there.
-  if ((lastMessage as AIMessage)?.tool_calls?.length || 0 > 0) {
+  if (((lastMessage as AIMessage)?.tool_calls?.length || 0) > 0) {
     return "tools";
   }
   // Otherwise end the graph.
