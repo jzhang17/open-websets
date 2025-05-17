@@ -31,9 +31,9 @@ export default function Home() {
         
         <div className="mt-2">
           <Input 
-            type="text" 
             placeholder="Describe what you're looking for..." 
-            className="w-full"
+            className="w-full text-lg"
+            multiline={true}
           />
         </div>
       </div>
