@@ -6,6 +6,23 @@
 ├── .git/
 ├── .gitignore
 ├── README.md
+├── frontend/
+│   ├── README.md
+│   ├── app/
+│   │   ├── favicon.ico
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   ├── components/
+│   ├── components.json
+│   ├── eslint.config.mjs
+│   ├── lib/
+│   ├── next.config.ts
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.mjs
+│   ├── public/
+│   └── tsconfig.json
 ├── documentations/
 │   ├── aggrid_docs/ (...)
 │   ├── exa_docs/ (...)
