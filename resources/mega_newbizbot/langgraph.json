@@ -1,7 +1,0 @@
-{
-    "dependencies": ["."],
-    "graphs": {
-      "agent": "./agent.py:mega_agent_app"
-    },
-    "env": ".env"
-  }
