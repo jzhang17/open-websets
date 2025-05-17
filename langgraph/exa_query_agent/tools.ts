@@ -4,6 +4,7 @@
  */
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
+import { Exa } from 'exa-js';
 
 // Environment variable checks (optional, but good practice)
 // It's better to handle these within the tool functions or ensure they are set in the environment
@@ -12,72 +13,63 @@ import { z } from "zod";
 // const SEARCH1API_KEY = process.env.SEARCH1API_KEY;
 // const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
 
-/**
- * Helper function to remove markdown images from text.
- */
-function removeMarkdownImages(content: string): string {
-  const pattern = /!\[([^\]]*)\]\(([^\)]+)\)/g;
-  return content.replace(pattern, "");
+// Define an interface for the search result object from Exa
+interface ExaSearchResult {
+  id: string;
+  url?: string;
+  title?: string | null;
+  text?: string;
+  // Add other fields if necessary based on what you expect to use
+}
+
+interface ExaContentsResponse {
+  results: ExaSearchResult[];
 }
 
 const scrapeWebpagesSchema = z.object({
   links: z.array(z.string()).describe("A list of strings (URLs) to scrape."),
 });
 /**
- * Scrapes web pages using Jina AI.
+ * Scrapes web pages using Exa AI.
  */
-const scrapeWebpages = new DynamicStructuredTool({
-  name: "scrape_webpages",
+const webCrawl = new DynamicStructuredTool({
+  name: "web_crawl",
   description:
-    "Scrape the provided web pages for detailed information. Use with less than 20 links (most optimally less than 10). Input format: {\"links\": [\"site1.com\", \"site2.com\", ...]}",
+    "Scrape the provided web pages for detailed information using Exa AI. Use with less than 20 links (most optimally less than 10). Input format: {\"links\": [\"site1.com\", \"site2.com\", ...]}",
   schema: scrapeWebpagesSchema, // Schema for validation by the framework
   func: async (args: z.infer<typeof scrapeWebpagesSchema>) => {
     const { links } = args;
 
-    const JINA_API_KEY = process.env.JINA_API_KEY;
-    if (!JINA_API_KEY) {
-      return "Error: JINA_API_KEY not found in environment variables.";
+    const EXA_API_KEY = process.env.EXA_API_KEY;
+    if (!EXA_API_KEY) {
+      return "Error: EXA_API_KEY not found in environment variables.";
     }
     if (!links || links.length === 0) {
       return "Error: No URLs provided.";
     }
 
-    const headers = { Authorization: `Bearer ${JINA_API_KEY}` };
+    const exa = new Exa(EXA_API_KEY);
     let combinedContent: string[] = [];
 
-    const scrapeUrl = async (link: string): Promise<string> => {
-      try {
-        const fullUrl = `https://r.jina.ai/${link}`;
-        const response = await fetch(fullUrl, {
-          headers,
-          signal: AbortSignal.timeout(10000), // 10 second timeout
+    try {
+      const contentsResponse: ExaContentsResponse = await exa.getContents(links) as ExaContentsResponse;
+
+      if (contentsResponse.results && contentsResponse.results.length > 0) {
+        combinedContent = contentsResponse.results.map((result: ExaSearchResult) => {
+          let content = result.text || `No content retrieved for ${result.url || result.id}`;
+          content = content.replace(/\$/g, "\\$"); // Escape dollar signs
+          return content;
         });
-        if (!response.ok) {
-          return `Error scraping ${link}: ${response.status} ${response.statusText}`;
-        }
-        let content = await response.text();
-        content = content.replace(/\$/g, "\\$"); // Escape dollar signs
-        content = removeMarkdownImages(content);
-        return content;
-      } catch (error: any) {
-        if (error.name === 'TimeoutError') {
-          return `Timeout for ${link}: Request timed out after 10 seconds.`;
-        }
-        return `Error scraping ${link}: ${error.message}`;
+      } else {
+        return "Error: No content retrieved from Exa or empty results.";
       }
-    };
-
-    const tasks = links.map(scrapeUrl);
-    const results = await Promise.all(tasks);
-    combinedContent = results;
-
-    let finalContent = combinedContent.join("\n\n");
-    if (finalContent.length > 200000) {
-      finalContent =
-        finalContent.substring(0, 200000) +
-        "\n\n[Content truncated due to length...]";
+    } catch (error: any) {
+      // Handle potential errors from the Exa API call
+      return `Error scraping with Exa: ${error.message}`;
     }
-    return finalContent;
+
+    // Return the array of content strings directly
+    return combinedContent;
   },
 });
 
@@ -142,6 +134,6 @@ const batchWebSearch = new DynamicStructuredTool({
 
 
 export const TOOLS = [
-  scrapeWebpages,
+  webCrawl,
   batchWebSearch,
 ];
