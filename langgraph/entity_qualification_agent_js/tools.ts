@@ -289,78 +289,29 @@ export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
     },
 });
 
-// Schemas for updateQualificationSummaryStateTool operations
-const removeDuplicatesOpSchema = z.object({
-  operation: z.enum(["remove_duplicates"]),
-});
-const removeByNameOpSchema = z.object({
-  operation: z.enum(["remove_by_name"]),
-  entity_name: z.string(),
-});
-const updateFieldsOpSchema = z.object({
-  operation: z.enum(["update_fields"]),
-  entity_name: z.string(),
-  qualified: z.boolean().optional(),
-  reasoning: z.string().optional(),
-});
-
-// Schema for updateQualificationSummaryStateTool
-const updateSummarySchema = z.object({
-    currentSummary: z.array(z.object({
-        entity_name: z.string(),
-        qualified: z.boolean(),
-        reasoning: z.string(),
-    }).passthrough()).describe("The current complete list of qualification summary items from the state."),
-    instruction: z.union([
-        removeDuplicatesOpSchema,
-        removeByNameOpSchema,
-        updateFieldsOpSchema,
-    ]).describe("The specific operation to perform on the qualification summary (remove_duplicates, remove_by_name, update_fields)."),
+// Replacing operation-based update tool with full-summary overwrite tool
+const overwriteSummarySchema = z.object({
+  summary: z.array(
+    z.object({
+      entity_name: z.string(),
+      qualified: z.boolean(),
+      reasoning: z.string(),
+    }).passthrough()
+  ).describe("The complete list of qualification summary items to replace the existing summary."),
 });
 
 /**
- * Updates the qualification summary based on specific instructions.
- * Returns the new summary to update 'qualificationSummary' in state.
+ * Replaces the entire qualification summary with the provided list.
  */
 export const updateQualificationSummaryStateTool = new DynamicStructuredTool({
-    name: "update_qualification_summary_state",
-    description: "Updates the qualification summary based on a specific instruction: remove_duplicates, remove_by_name, or update_fields. Requires the current qualification summary from the state and the specific update instruction. Returns the complete updated qualification summary.",
-    schema: updateSummarySchema,
-    func: async (args: z.infer<typeof updateSummarySchema>) => {
-        let newSummary = [...args.currentSummary]; 
-        const instruction = args.instruction;
-
-        if (instruction.operation === "remove_duplicates") {
-            const seenNames = new Set<string>();
-            newSummary = newSummary.filter(item => {
-                if (seenNames.has(item.entity_name)) return false;
-                seenNames.add(item.entity_name);
-                return true;
-            });
-        } else if (instruction.operation === "remove_by_name") {
-            const op = instruction as z.infer<typeof removeByNameOpSchema>;
-            newSummary = newSummary.filter(item => item.entity_name !== op.entity_name);
-        } else if (instruction.operation === "update_fields") {
-            const op = instruction as z.infer<typeof updateFieldsOpSchema>;
-            const index = newSummary.findIndex(item => item.entity_name === op.entity_name);
-            if (index > -1) {
-                if (op.qualified !== undefined) newSummary[index].qualified = op.qualified;
-                if (op.reasoning !== undefined) newSummary[index].reasoning = op.reasoning;
-            }
-        }
-        return { qualificationSummary: newSummary as QualificationItem[] };
-    },
+  name: "update_qualification_summary_state",
+  description: "Replaces the entire qualification summary with the provided list. Provide the complete, updated qualification summary via the 'summary' argument.",
+  schema: overwriteSummarySchema,
+  func: async (args: z.infer<typeof overwriteSummarySchema>) => {
+    // Signal a state update for qualificationSummary by wrapping in 'update'
+    return { update: { qualificationSummary: args.summary as QualificationItem[] } };
+  },
 });
-
-
-export const TOOLS = [
-  scrapeWebpages,
-  batchWebSearch,
-  extractEntities,
-  qualifyAllEntitiesTool,
-  verifyQualificationConsistencyTool,
-  updateQualificationSummaryStateTool,
-];
 
 export const AGENT_TOOLS = [
   scrapeWebpages,
@@ -370,5 +321,5 @@ export const AGENT_TOOLS = [
 ];
 
 export const VERIFICATION_LLM_TOOLS = [
-  updateQualificationSummaryStateTool,
+  qualifyAllEntitiesTool,
 ];

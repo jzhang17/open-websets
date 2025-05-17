@@ -141,34 +141,50 @@ async function programmaticVerificationNode(
   state: AppState,
   _config: RunnableConfig,
 ): Promise<Partial<AppState>> { 
-  const { entitiesToQualify, qualificationSummary } = state;
-  const toolInput = { entitiesToQualify, qualificationSummary };
+  let currentQualificationSummary = state.qualificationSummary; // Default to state
+  let updateToReturn: Partial<AppState> = {};
+
+  // Check for an update from the last tool call (e.g., from verificationToolsNode)
+  const lastMessage = state.messages[state.messages.length - 1];
+  if (lastMessage && lastMessage.constructor.name === "ToolMessage") {
+    const toolMessage = lastMessage as any; 
+    // Safely check toolMessage and its properties
+    if (toolMessage && typeof toolMessage.name === 'string' && toolMessage.name === "qualify_entities" && typeof toolMessage.content === 'string') {
+      try {
+        const parsedContent = JSON.parse(toolMessage.content);
+        if (parsedContent && parsedContent.update && Array.isArray(parsedContent.update.qualificationSummary)) {
+          currentQualificationSummary = parsedContent.update.qualificationSummary as QualificationItem[];
+          updateToReturn.qualificationSummary = currentQualificationSummary;
+        }
+      } catch (e) {
+        console.error("Error parsing qualificationSummary from tool message in programmaticVerificationNode:", e);
+      }
+    }
+  }
+
+  const { entitiesToQualify } = state; 
+  const toolInput = { entitiesToQualify, qualificationSummary: currentQualificationSummary }; 
   
   try {
-    // verifyQualificationConsistencyTool.func should return the raw verification issues object
-    // based on its definition where it returns { verificationResults: issues }
-    // So funcResult is effectively the `issues` object itself.
     const funcResult = await verifyQualificationConsistencyTool.func(toolInput);
-    // The tool's func was defined to return { verificationResults: issues }, so funcResult is this object.
-    if (funcResult && typeof funcResult === 'object' && 'verificationResults' in funcResult && typeof (funcResult as any).verificationResults === 'object') {
-         // Ensure the state update matches the reducer for verificationResults
-        return { verificationResults: (funcResult as any).verificationResults };
+
+    if (funcResult && typeof funcResult === 'object' && 'verificationResults' in funcResult) {
+      const verificationData = (funcResult as { verificationResults: unknown }).verificationResults;
+      if (typeof verificationData === 'object' && verificationData !== null) {
+        updateToReturn.verificationResults = verificationData as Record<string, any>;
+      } else {
+        console.error("Verification tool's 'verificationResults' property is not a valid object. Output:", funcResult);
+        updateToReturn.verificationResults = { error: "Verification tool's 'verificationResults' was not an object", final_consistency: false };
+      }
     } else {
-        console.error("Verification tool's func did not return the expected structure directly containing issues for verificationResults field. Output:", funcResult);
-        // If the tool returns just the issues, not wrapped in {verificationResults: issues}
-        // then we should wrap it here: return { verificationResults: funcResult };
-        // Based on tools.ts, verifyQualificationConsistencyTool.func will return { verificationResults: issues }
-        // So this path should ideally not be hit if tool is correct.
-        // For safety, if it's just the issues object: 
-        if (typeof funcResult === 'object' && funcResult !== null) {
-            return { verificationResults: funcResult }; // Assuming funcResult is the issues object itself
-        } 
-        return { verificationResults: { error: "Verification tool returned unexpected data format", final_consistency: false } };
+      console.error("Verification tool's func did not return the expected structure (e.g., missing 'verificationResults'). Output:", funcResult);
+      updateToReturn.verificationResults = { error: "Verification tool returned unexpected data format or was null/undefined during programmatic check", final_consistency: false };
     }
   } catch (e: any) {
-    console.error("Error running programmaticVerificationNode tool function:", e);
-    return { verificationResults: { error: `Verification tool execution failed: ${e.message}`, final_consistency: false } };
+    console.error("Error running programmaticVerificationNode's tool function (verifyQualificationConsistencyTool):", e);
+    updateToReturn.verificationResults = { error: `Verification tool execution failed during programmatic check: ${e.message}`, final_consistency: false };
   }
+  return updateToReturn;
 }
 
 async function verificationAgentNode(
@@ -263,7 +279,8 @@ function routeAfterVerificationAgentNode(state: AppState): string {
   const lastMessage = state.messages[state.messages.length - 1];
 
   // Check for tool calls first, regardless of exact message type, as long as it has tool_calls
-  if (lastMessage && (lastMessage as AIMessage)?.tool_calls && (lastMessage as AIMessage).tool_calls.length > 0) {
+  const toolCalls = (lastMessage as AIMessage)?.tool_calls;
+  if (lastMessage && toolCalls && toolCalls.length > 0) {
     return "verificationToolsNode";
   }
 

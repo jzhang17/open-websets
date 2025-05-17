@@ -46,82 +46,40 @@ System time: {system_time}`;
 
 export const VERIFICATION_PROMPT_TEMPLATE = `## Entity Qualification Verification - ACTION REQUIRED
 
-You are an Entity Data Verification Specialist. Your task is to ensure the 'qualificationSummary' data perfectly aligns with the 'entitiesToQualify' list and is free of errors, based on the provided verification issues.
+You are an Entity Data Verification Specialist. Your task is to ensure that the 'qualificationSummary' fully matches the 'entitiesToQualify' list with no typos, duplicates, missing entities, or extra entries.
 
 ### Current State Analysis:
--   **Original Entities to Qualify (from state.entitiesToQualify):**
-    {entitiesToQualifyString}
+-   **Entities to Qualify:** {entitiesToQualifyString}
+-   **Current Qualification Summary:** {qualificationSummaryString}
+-   **Verification Issues:** {verificationIssuesString}
 
--   **Current Qualification Summary (from state.qualificationSummary):**
-    {qualificationSummaryString}
+### Your Action:
+Carefully review the 'Verification Issues', especially the \`potential_name_mismatches_details\` field.
+Your goal is to produce a new, complete 'qualificationSummary' that perfectly aligns with the 'Entities to Qualify' list.
 
--   **Detailed Verification Issues Found (from state.verificationResults):**
-    {verificationIssuesString}
-    *   Pay close attention to:
-        *   \`duplicates_found_now\`: Entity names appearing multiple times in 'qualificationSummary'.
-        *   \`missing_entities_now\`: Entities from 'entitiesToQualify' NOT in 'qualificationSummary'.
-        *   \`extra_entities_now\`: Entities in 'qualificationSummary' NOT in the original 'entitiesToQualify'.
+1.  **Correct Names**: For each entity, ensure its \`entity_name\` in the new summary **exactly matches** the corresponding name in the 'Entities to Qualify' list.
+    *   If \`potential_name_mismatches_details\` (within 'Verification Issues') lists an item (e.g., \`summary_name\`: "entityX", \`qualify_list_name\`: "entityX "), you **MUST** use the \`qualify_list_name\` (e.g., "entityX ") as the correct \`entity_name\` in your new summary for that entity.
+2.  **Completeness**: Include every entity from 'Entities to Qualify' exactly once in your new summary.
+3.  **No Extras**: Remove any entities from your summary that are not present in 'Entities to Qualify'.
+4.  **No Duplicates**: Ensure no entity is listed more than once in your summary.
+5.  **Maintain Data**: For entities whose names are corrected or that are being retained, carry over their existing \`qualified\` status and \`reasoning\`. For any newly added (previously missing) entities, determine their qualification status and provide appropriate reasoning.
 
-### Your REQUIRED Action (Address in this order of priority):
-Your goal is to use the 'update_qualification_summary_state' tool to correct the 'qualificationSummary'. You MUST pass the **current 'qualificationSummary'** (provided above) to the 'currentSummary' argument of this tool.
+After constructing the complete and corrected list, call the 'update_qualification_summary_state' tool with the entire new list in the 'summary' argument. Your response MUST end with this tool call.
 
-**1. Handle Name Mismatches (Typo Correction Priority):**
-    *   First, check the \`potential_name_mismatches_details\` field in \`verificationResults\`. This field lists pairs of names: \`summary_name\` (from your current qualificationSummary) and \`qualify_list_name\` (from the original entitiesToQualify list). These are programmatically suspected to be typos of each other (e.g., differing by leading/trailing spaces or minor casing differences).
-    *   **If \`potential_name_mismatches_details\` is not empty:**
-        *   Pick the first mismatch from this list (e.g., \`summary_name\`: "entityX", \`qualify_list_name\`: "entityX ").
-        *   The \`summary_name\` is the one currently in your \`qualificationSummary\` that is likely incorrect.
-        *   **Action**: Call 'update_qualification_summary_state' with the instruction \`{ "operation": "remove_by_name", "entity_name": "SUMMARY_NAME_FROM_MISMATCH" }\` to remove the incorrectly named entry (the \`summary_name\`) from \`qualificationSummary\`.
-        *   Address only ONE such programmatically identified mismatch per turn. Removing the incorrect entry is the priority. The correctly named entity (the \`qualify_list_name\`) will be picked up for qualification if you later signal \`<continue_qualification/>\` (see step 4).
-    *   **If \`potential_name_mismatches_details\` is empty, but you still see entries in \`extra_entities_now\` and \`missing_entities_now\`:**
-        *   Carefully compare entities in \`extra_entities_now\` with those in \`missing_entities_now\` for other potential typos not caught programmatically.
-        *   If you find an entity in \`extra_entities_now\` (e.g., "entityY_typo") that closely matches an entity in \`missing_entities_now\` (e.g., "entityY_correct") and appears to be a typo:
-            *   **Action**: Call 'update_qualification_summary_state' with the instruction \`{ "operation": "remove_by_name", "entity_name": "ENTITY_EXTRA_TYPO_NAME" }\` (e.g., "entityY_typo") to remove the incorrectly named entry from \`qualificationSummary\`.
-    *   Tool Call Example for mismatch (using a \`summary_name\` from \`potential_name_mismatches_details\` or an \`extra_entities_now\` entry you identified as a typo):
-        {
-          "name": "update_qualification_summary_state",
-          "args": {
-            "currentSummary": [/* current full qualificationSummary from state */],
-            "instruction": { "operation": "remove_by_name", "entity_name": "entityY_typo" }
-          }
-        }
-    *   **If you perform this action (removing a typo), do not proceed to other steps in this turn.** Re-evaluate on the next turn based on updated verification results.
+Example tool call:
+{
+  "name": "update_qualification_summary_state",
+  "args": {
+    "summary": [
+      {
+        "entity_name": "ExactNameFromEntitiesToQualify",
+        "qualified": true,
+        "reasoning": "..."
+      }
+      // ... include all other entities exactly once, with corrected names ...
+    ]
+  }
+}
 
-**2. Handle Duplicates** (if no name mismatches were addressed above):
-    *   If \`duplicates_found_now\` is not empty, call 'update_qualification_summary_state' with the instruction \`{ "operation": "remove_duplicates" }\`.
-    *   Tool Call Example:
-        {
-          "name": "update_qualification_summary_state",
-          "args": {
-            "currentSummary": [/* current full qualificationSummary from state */],
-            "instruction": { "operation": "remove_duplicates" }
-          }
-        }
-
-**3. Handle Extra Entities** (if no name mismatches or duplicates were addressed above):
-    *   If \`extra_entities_now\` is not empty (and these were not identified as typos in step 1), pick ONE entity name from this list and call 'update_qualification_summary_state' with the instruction \`{ "operation": "remove_by_name", "entity_name": "ENTITY_TO_REMOVE" }\`.
-    *   Address only ONE extra entity per turn.
-    *   Tool Call Example:
-        {
-          "name": "update_qualification_summary_state",
-          "args": {
-            "currentSummary": [/* current full qualificationSummary from state */],
-            "instruction": { "operation": "remove_by_name", "entity_name": "ExtraCorp" }
-          }
-        }
-
-**4. Handle Missing Entities** (if no name mismatches, duplicates, or standalone extras were addressed above):
-    *   If \`missing_entities_now\` is NOT empty, AND \`duplicates_found_now\` AND \`extra_entities_now\` (those not handled as typos) are BOTH EMPTY, respond ONLY with the tag: \`<continue_qualification/>\`. This signals the main agent to process these missing entities. Do NOT use a tool in this case.
-
-**5. Handle Other Issues** (e.g., inconsistent data within an item - if verification tool reported such, and no higher priority issues exist):
-    *   If other correctable issues are reported in \`verificationResults\` (and no duplicates/extras/missing requiring other actions as per above priorities), you can use 'update_qualification_summary_state' with the \`{ "operation": "update_fields", "entity_name": "...", "qualified": ..., "reasoning": "..." }\` instruction.
-
-**6. No Issues / Completion**:
-    *   If \`verificationResults\` shows \`final_consistency: true\`, or after your corrections you believe all issues listed are resolved and no other action (like point 4) is needed, respond ONLY with the tag: \`<verification_complete/>\`.
-
-### Tool Usage Rules:
--   Prioritize using the 'update_qualification_summary_state' tool for corrections based on the order above.
--   Always provide the complete, current 'qualificationSummary' (as given to you above) to the tool's 'currentSummary' argument. The tool will return the full updated summary.
--   Address only ONE type of issue or ONE specific item per turn (e.g., remove one extra entity, or remove all duplicates, or fix one name mismatch).
--   Your response MUST end with either a tool call, \`<continue_qualification/>\`, or \`<verification_complete/>\`.
-
+Do not use partial operations or other tools. Focus solely on creating the complete, corrected summary and calling the 'update_qualification_summary_state' tool.
 System time: {system_time}`;
