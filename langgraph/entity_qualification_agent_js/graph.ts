@@ -43,15 +43,17 @@ const AppStateAnnotation = Annotation.Root({
     default: () => [],
   }),
   qualificationSummary: Annotation<QualificationItem[]>({
-    reducer: (currentState: QualificationItem[] | undefined, updateValue: QualificationItem | QualificationItem[] | undefined): QualificationItem[] => {
-      const currentItems = Array.isArray(currentState) ? currentState : [];
+    reducer: (
+      _currentState: QualificationItem[] | undefined, 
+      updateValue: QualificationItem | QualificationItem[] | undefined
+    ): QualificationItem[] => {
+      // The tool is expected to return an array for 'qualificationSummary' key.
       if (Array.isArray(updateValue)) {
-        return currentItems.concat(updateValue);
-      } else if (updateValue && typeof updateValue === 'object' && !Array.isArray(updateValue)) {
-        // Assumes updateValue is a single QualificationItem if it's a non-array object
-        return currentItems.concat([updateValue as QualificationItem]);
+        return updateValue; // Replace with the new array
       }
-      return currentItems; // If updateValue is undefined or not a valid type, return current items
+      // If updateValue is not an array (e.g., undefined from other operations or a single item which is not expected from this tool for this key)
+      // then return an empty array, effectively clearing or resetting if the update is invalid for replacement.
+      return []; 
     },
     default: () => [],
   }),

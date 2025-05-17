@@ -241,14 +241,14 @@ export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
 
 // Schemas for updateQualificationSummaryStateTool operations
 const removeDuplicatesOpSchema = z.object({
-  operation: z.literal("remove_duplicates"),
+  operation: z.enum(["remove_duplicates"]),
 });
 const removeByNameOpSchema = z.object({
-  operation: z.literal("remove_by_name"),
+  operation: z.enum(["remove_by_name"]),
   entity_name: z.string(),
 });
 const updateFieldsOpSchema = z.object({
-  operation: z.literal("update_fields"),
+  operation: z.enum(["update_fields"]),
   entity_name: z.string(),
   qualified: z.boolean().optional(),
   reasoning: z.string().optional(),
