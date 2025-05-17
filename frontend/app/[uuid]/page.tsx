@@ -2,14 +2,15 @@ interface UuidPageProps {
   params: {
     uuid: string;
   };
-  searchParams: { // searchParams are always available in Next.js App Router server components
-    query?: string; // query is optional as it comes from URL search params
-  };
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default function UuidPage({ params, searchParams }: UuidPageProps) {
-  const { uuid } = params;
-  const query = searchParams?.query;
+export default async function UuidPage({ params, searchParams }: UuidPageProps) {
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+
+  const { uuid } = resolvedParams;
+  const query = resolvedSearchParams?.query;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50">
