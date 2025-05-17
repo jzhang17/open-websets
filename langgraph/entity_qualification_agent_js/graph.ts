@@ -17,8 +17,7 @@ export interface QualificationItem {
   entity_name: string;
   qualified: boolean;
   reasoning: string;
-  // Allow other properties as Python version uses Dict[str, Any]
-  [key: string]: any;
+  [key: string]: any; // allow extra fields
 }
 
 // Define the new state structure including entities
@@ -27,7 +26,6 @@ const AppStateAnnotation = Annotation.Root({
     reducer: (currentMessages, newMessages) => currentMessages.concat(newMessages),
     default: () => [],
   }),
-  // This corresponds to 'entities_to_qualify' from the Python agent
   entitiesToQualify: Annotation<string[]>({
     reducer: (currentState, updateValue) => {
       // The existing 'entities' reducer was a concat.

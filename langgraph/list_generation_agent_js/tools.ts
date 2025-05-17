@@ -5,13 +5,6 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 
-// Environment variable checks (optional, but good practice)
-// It's better to handle these within the tool functions or ensure they are set in the environment
-// For simplicity in this example, we'll assume they are set.
-// const JINA_API_KEY = process.env.JINA_API_KEY;
-// const SEARCH1API_KEY = process.env.SEARCH1API_KEY;
-// const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
-
 /**
  * Helper function to remove markdown images from text.
  */
@@ -144,4 +137,4 @@ const batchWebSearch = new DynamicStructuredTool({
 export const TOOLS = [
   scrapeWebpages,
   batchWebSearch,
-];
+]; // tools available during list generation
