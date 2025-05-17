@@ -6,13 +6,6 @@ import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { Exa } from 'exa-js';
 
-// Environment variable checks (optional, but good practice)
-// It's better to handle these within the tool functions or ensure they are set in the environment
-// For simplicity in this example, we'll assume they are set.
-// const JINA_API_KEY = process.env.JINA_API_KEY;
-// const SEARCH1API_KEY = process.env.SEARCH1API_KEY;
-// const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
-
 // Define an interface for the search result object from Exa
 interface ExaSearchResult {
   id: string;
@@ -132,8 +125,58 @@ const batchWebSearch = new DynamicStructuredTool({
   },
 });
 
+const exaSearchSchema = z.object({
+  query: z.string().describe("The search query."),
+  type: z.enum(["neural", "keyword"]).optional().describe("The type of search to perform. 'neural' for semantic search, 'keyword' for traditional keyword search."),
+  category: z.enum(["company", "research paper", "news", "pdf", "github", "tweet", "personal site", "linkedin profile", "financial report"]).optional().describe("The category of content to search for. Limits results to a certain type of document."),
+});
+
+/**
+ * Performs a web search using Exa AI.
+ */
+const exaSearch = new DynamicStructuredTool({
+  name: "exa_search",
+  description: "Perform a web search using Exa AI. Allows specifying search type (neural, keyword) and category (article, company, personal_site). Returns 25 results.",
+  schema: exaSearchSchema,
+  func: async (args: z.infer<typeof exaSearchSchema>) => {
+    const { query, type, category } = args;
+
+    const EXA_API_KEY = process.env.EXA_API_KEY;
+    if (!EXA_API_KEY) {
+      return "Error: EXA_API_KEY not found in environment variables.";
+    }
+    if (!query) {
+      return "Error: No query provided.";
+    }
+
+    const exa = new Exa(EXA_API_KEY);
+
+    try {
+      // Type assertion for the options object
+      const options: {
+        numResults: number;
+        type?: "neural" | "keyword";
+        category?: "company" | "research paper" | "news" | "pdf" | "github" | "tweet" | "personal site" | "linkedin profile" | "financial report";
+      } = { numResults: 25 };
+
+      if (type) {
+        options.type = type;
+      }
+      if (category) {
+        options.category = category;
+      }
+
+      const searchResponse = await exa.search(query, options);
+      return JSON.stringify(searchResponse.results);
+    } catch (error: any) {
+      // Handle potential errors from the Exa API call
+      return `Error searching with Exa: ${error.message}`;
+    }
+  },
+});
 
 export const TOOLS = [
   webCrawl,
   batchWebSearch,
+  exaSearch,
 ];
