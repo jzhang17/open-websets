@@ -2,6 +2,9 @@ import { AIMessage, BaseMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { StateGraph, Annotation } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
@@ -64,6 +67,12 @@ const ParentAppStateAnnotation = Annotation.Root({
 type ParentAppState = typeof ParentAppStateAnnotation.State;
 type ParentAppStateUpdate = typeof ParentAppStateAnnotation.Update;
 
+// Read the system prompt from the markdown file
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const systemPromptPath = path.join(__dirname, "system_prompt.md");
+const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
+
 async function callModel(
   state: ParentAppState, 
   config: RunnableConfig,
@@ -73,7 +82,7 @@ async function callModel(
   const response = await model.invoke([
     {
       role: "system",
-      content: configuration.systemPromptTemplate.replace(
+      content: systemPrompt.replace(
         "{system_time}",
         new Date().toISOString(),
       ),

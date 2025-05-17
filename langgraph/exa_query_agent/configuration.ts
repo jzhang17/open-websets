@@ -2,12 +2,13 @@
  * Define the configurable parameters for the agent.
  */
 import { Annotation } from "@langchain/langgraph";
-import { SYSTEM_PROMPT } from "./prompts.js";
 import { RunnableConfig } from "@langchain/core/runnables";
 
 export const ConfigurationSchema = Annotation.Root({
   /**
    * The system prompt to be used by the agent.
+   * This is now directly read in graph.ts, so this field might be redundant or need rethinking.
+   * For now, let's remove its default sourcing from SYSTEM_PROMPT.
    */
   systemPromptTemplate: Annotation<string>,
 
@@ -26,7 +27,7 @@ export function ensureConfiguration(
   const configurable = config.configurable ?? {};
   return {
     systemPromptTemplate:
-      configurable.systemPromptTemplate ?? SYSTEM_PROMPT,
+      configurable.systemPromptTemplate ?? "", // Provide a default empty string or handle appropriately
     model: configurable.model ?? "google-genai/models/gemini-2.5-flash-preview-04-17",
   };
 }
