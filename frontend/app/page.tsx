@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function Home() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
-      <div className="text-center max-w-md w-full">
+      <div className="text-center max-w-lg w-full">
         <h1 className="text-2xl font-bold tracking-tight">Find your (almost) perfect list</h1>
         
         <Tabs defaultValue="people" className="w-full mt-8">
