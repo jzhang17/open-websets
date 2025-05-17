@@ -9,7 +9,7 @@ import { ChatGoogle } from "@langchain/google-webauth";
 export async function loadChatModel(fullySpecifiedName: string) {
   if (fullySpecifiedName.startsWith("gemini")) {
     return new ChatGoogle({
-      model: fullySpecifiedName, // The API reference uses modelName, the doc uses model
+      model: fullySpecifiedName,
       apiVersion: "v1beta",
       platformType: "gai",
       maxReasoningTokens: 0

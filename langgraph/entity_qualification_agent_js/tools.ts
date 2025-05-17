@@ -4,14 +4,8 @@
  */
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { QualificationItem } from "./graph.js"; // Added .js extension
+import { QualificationItem } from "./graph.js";
 
-// Environment variable checks (optional, but good practice)
-// It's better to handle these within the tool functions or ensure they are set in the environment
-// For simplicity in this example, we'll assume they are set.
-// const JINA_API_KEY = process.env.JINA_API_KEY;
-// const SEARCH1API_KEY = process.env.SEARCH1API_KEY;
-// const SUPADATA_API_KEY = process.env.SUPADATA_API_KEY;
 
 /**
  * Helper function to remove markdown images from text.
@@ -109,7 +103,7 @@ const batchWebSearch = new DynamicStructuredTool({
       "Content-Type": "application/json",
     };
 
-    const batchRequest = queries.map((query: string) => ({ // Added type for query
+    const batchRequest = queries.map((query: string) => ({
       query: query,
       search_service: "google",
       max_results: 10,
@@ -181,8 +175,7 @@ export const qualifyAllEntitiesTool = new DynamicStructuredTool({
   description: "Updates or sets the qualification summary for all entities. Provide the complete list of qualification information. This REPLACES the existing summary.",
   schema: qualifyAllEntitiesSchema,
   func: async (args: z.infer<typeof qualifyAllEntitiesSchema>) => {
-    // Return an object structured to explicitly signal a state update,
-    // similar to how a Command object would work.
+    // Return an object that instructs the graph to update its state
     return { 
       update: { 
         qualificationSummary: args.summary as QualificationItem[] 
@@ -218,34 +211,34 @@ export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
           duplicates_found_now: [],
           missing_entities_now: [],
           extra_entities_now: [],
-          potential_name_mismatches_details: [], // New field
+          potential_name_mismatches_details: [], // tracks possible name typos
           final_consistency: true,
         };
 
         // Calculate duplicates
-        const nameCounts = summaryEntityNames.reduce((acc: Record<string, number>, name: string) => { // Added types for acc and name
+        const nameCounts = summaryEntityNames.reduce((acc: Record<string, number>, name: string) => {
           acc[name] = (acc[name] || 0) + 1;
           return acc;
         }, {} as Record<string, number>);
         issues.duplicates_found_now = Object.entries(nameCounts)
-          .filter(([_name, count]: [string, number]) => count > 1) // Added type for [name, count]
+          .filter(([_name, count]: [string, number]) => count > 1)
           .map(([name]) => name);
 
         const summarySet = new Set(summaryEntityNames);
         const entitiesToQualifySet = new Set(entitiesToQualify);
 
         // Calculate initial missing and extra entities
-        const initialMissingEntities = entitiesToQualify.filter((name: string) => !summarySet.has(name)); // Added type for name
+        const initialMissingEntities = entitiesToQualify.filter((name: string) => !summarySet.has(name));
         issues.missing_entities_now = [...initialMissingEntities]; // Store the full list
 
-        const initialExtraEntities = summaryEntityNames.filter((name: string) => !entitiesToQualifySet.has(name)); // Added type for name
+        const initialExtraEntities = summaryEntityNames.filter((name: string) => !entitiesToQualifySet.has(name));
         issues.extra_entities_now = [...initialExtraEntities]; // Store the full list
 
         // Identify potential name mismatches
         const potentialMismatchesList: Array<{ summary_name: string; qualify_list_name: string; reason: string }> = [];
         
-        // Use copies for matching logic to preserve the original issues.extra_entities_now and issues.missing_entities_now for reporting
-        const tempExtraForMatching = [...initialExtraEntities]; 
+        // Use copies so we don't mutate the original arrays
+        const tempExtraForMatching = [...initialExtraEntities];
         const tempMissingForMatching = [...initialMissingEntities];
         
         const matchedExtraIndicesInTemp = new Set<number>();
@@ -318,8 +311,8 @@ export const AGENT_TOOLS = [
   batchWebSearch,
   extractEntities,
   qualifyAllEntitiesTool,
-];
+]; // used by the main qualification agent
 
 export const VERIFICATION_LLM_TOOLS = [
   qualifyAllEntitiesTool,
-];
+]; // used by the verification agent
