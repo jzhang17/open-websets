@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, Building2, BookOpen, Newspaper } from "lucide-react";
 
 export default function Home() {
   return (
@@ -9,10 +10,22 @@ export default function Home() {
 
         <Tabs defaultValue="people" className="w-full mt-4">
           <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="people">People</TabsTrigger>
-            <TabsTrigger value="companies">Companies</TabsTrigger>
-            <TabsTrigger value="research">Papers</TabsTrigger>
-            <TabsTrigger value="articles">Articles</TabsTrigger>
+            <TabsTrigger value="people">
+              <Users />
+              People
+            </TabsTrigger>
+            <TabsTrigger value="companies">
+              <Building2 />
+              Companies
+            </TabsTrigger>
+            <TabsTrigger value="research">
+              <BookOpen />
+              Papers
+            </TabsTrigger>
+            <TabsTrigger value="articles">
+              <Newspaper />
+              Articles
+            </TabsTrigger>
           </TabsList>
         </Tabs>
         
