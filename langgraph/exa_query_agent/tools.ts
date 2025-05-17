@@ -4,6 +4,7 @@
  */
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
+import { Exa } from 'exa-js';
 
 // Environment variable checks (optional, but good practice)
 // It's better to handle these within the tool functions or ensure they are set in the environment
@@ -135,4 +136,4 @@ const batchWebSearch = new DynamicStructuredTool({
 export const TOOLS = [
   webCrawl,
   batchWebSearch,
-]; // tools available during list generation
+];
