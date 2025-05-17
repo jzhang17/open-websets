@@ -1,22 +1,75 @@
-import { AIMessage } from "@langchain/core/messages";
+import { AIMessage, BaseMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { MessagesAnnotation, StateGraph } from "@langchain/langgraph";
+import { StateGraph, Annotation } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
 import { loadChatModel } from "./utils.js";
+import { 
+    graph as entityQualificationSubgraph, 
+    QualificationItem 
+} from "../entity_qualification_agent_js/graph.js";
 
-// Define the function that calls the model
+// Explicitly define the messages channel annotation
+const messagesChannelAnnotation = Annotation<BaseMessage[]>({
+    reducer: (currentMessages, newMessagesUpdate) => {
+        const newMessages = Array.isArray(newMessagesUpdate) ? newMessagesUpdate : [newMessagesUpdate];
+        return (currentMessages ?? []).concat(newMessages.filter(msg => msg !== undefined) as BaseMessage[]);
+    },
+    default: () => [],
+});
+
+const ParentAppStateAnnotation = Annotation.Root({
+  messages: messagesChannelAnnotation,
+  entitiesToQualify: Annotation<string[]>({
+    reducer: (currentState, updateValue) => {
+      const current = currentState ?? [];
+      if (Array.isArray(updateValue)) {
+        return current.concat(updateValue);
+      }
+      if (typeof updateValue === 'string') {
+        return current.concat([updateValue]);
+      }
+      return current;
+    },
+    default: () => [],
+  }),
+  qualificationSummary: Annotation<QualificationItem[]>({
+    reducer: (
+      _currentState: QualificationItem[] | undefined, 
+      updateValue: QualificationItem | QualificationItem[] | undefined
+    ): QualificationItem[] => {
+      if (Array.isArray(updateValue)) {
+        return updateValue; // Replace
+      }
+      return Array.isArray(_currentState) ? _currentState : []; 
+    },
+    default: () => [],
+  }),
+  verificationResults: Annotation<Record<string, any>>({
+    reducer: (_currentState, updateValue) => updateValue ?? {},
+    default: () => ({}),
+  }),
+  verificationLoopCount: Annotation<number>({
+    reducer: (_currentState, updateValue) => typeof updateValue === 'number' ? updateValue : (_currentState ?? 0),
+    default: () => 0,
+  }),
+  continueQualificationSignal: Annotation<boolean>({
+    reducer: (_currentState, updateValue) => typeof updateValue === 'boolean' ? updateValue : (_currentState ?? false),
+    default: () => false,
+  }),
+});
+
+type ParentAppState = typeof ParentAppStateAnnotation.State;
+type ParentAppStateUpdate = typeof ParentAppStateAnnotation.Update;
+
 async function callModel(
-  state: typeof MessagesAnnotation.State,
+  state: ParentAppState, 
   config: RunnableConfig,
-): Promise<typeof MessagesAnnotation.Update> {
-  /** Call the LLM powering our agent. **/
+): Promise<ParentAppStateUpdate> { 
   const configuration = ensureConfiguration(config);
-
   const model = (await loadChatModel(configuration.model)).bindTools(TOOLS);
-
   const response = await model.invoke([
     {
       role: "system",
@@ -25,50 +78,75 @@ async function callModel(
         new Date().toISOString(),
       ),
     },
-    ...state.messages,
+    ...(state.messages ?? []),
   ]);
-
-  // We return a list, because this will get added to the existing list
   return { messages: [response] };
 }
 
-// Define the function that determines whether to continue or not
-function routeModelOutput(state: typeof MessagesAnnotation.State): string {
-  const messages = state.messages;
-  const lastMessage = messages[messages.length - 1];
-  // If the LLM is invoking tools, route there.
-  if (((lastMessage as AIMessage)?.tool_calls?.length || 0) > 0) {
+// Original router, used by the subgraph
+function routeModelOutput(state: ParentAppState): string { 
+  const messages = state.messages ?? [];
+  if (messages.length === 0) {
+    return "__end__"; 
+  }
+  const lastMessage = messages[messages.length - 1]; 
+  if (lastMessage && (lastMessage as AIMessage).tool_calls && (lastMessage as AIMessage).tool_calls!.length > 0) {
     return "tools";
   }
-  // Otherwise end the graph.
   else {
     return "__end__";
   }
 }
 
-// Define a new graph. We use the prebuilt MessagesAnnotation to define state:
-// https://langchain-ai.github.io/langgraphjs/concepts/low_level/#messagesannotation
-const workflow = new StateGraph(MessagesAnnotation, ConfigurationSchema)
-  // Define the two nodes we will cycle between
-  .addNode("callModel", callModel)
-  .addNode("tools", new ToolNode(TOOLS))
-  // Set the entrypoint as `callModel`
-  // This means that this node is the first one called
-  .addEdge("__start__", "callModel")
-  .addConditionalEdges(
-    // First, we define the edges' source node. We use `callModel`.
-    // This means these are the edges taken after the `callModel` node is called.
-    "callModel",
-    // Next, we pass in the function that will determine the sink node(s), which
-    // will be called after the source node is called.
-    routeModelOutput,
-  )
-  // This means that after `tools` is called, `callModel` node is called next.
-  .addEdge("tools", "callModel");
+// New router for the main callModel node for 3-way decision
+function routeMainAgentDecision(state: ParentAppState): "invoke_tools" | "invoke_subgraph" | "terminate_process" {
+  const messages = state.messages ?? [];
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
-// Finally, we compile it!
-// This compiles it into a graph you can invoke and deploy.
+  // 1. Check for tool calls from callModel's own output
+  if (lastMessage && (lastMessage as AIMessage).tool_calls && (lastMessage as AIMessage).tool_calls!.length > 0) {
+    return "invoke_tools";
+  }
+
+  // 2. If no tools from callModel, decide if subgraph needs to run or if process should end.
+  // Simple logic: if qualificationSummary has data, assume subgraph has done its job, so terminate.
+  // Otherwise, invoke the subgraph.
+  if (state.qualificationSummary && state.qualificationSummary.length > 0) {
+    return "terminate_process";
+  } else {
+    return "invoke_subgraph";
+  }
+}
+
+const workflow = new StateGraph(ParentAppStateAnnotation, ConfigurationSchema)
+  .addNode("callModel", callModel)
+  .addNode("entityQualificationSubgraph", entityQualificationSubgraph as any) 
+  .addNode("tools", new ToolNode(TOOLS))
+  .addEdge("__start__", "callModel")
+
+  // Conditional routing for the main callModel node
+  .addConditionalEdges(
+    "callModel",
+    routeMainAgentDecision,
+    {
+      "invoke_tools": "tools",
+      "invoke_subgraph": "entityQualificationSubgraph",
+      "terminate_process": "__end__" // Actual graph termination
+    }
+  )
+  
+  // Conditional routing for the entityQualificationSubgraph
+  .addConditionalEdges(
+    "entityQualificationSubgraph", 
+    routeModelOutput, // Subgraph uses the simpler 2-way router
+    {
+        "tools": "callModel",         // Subgraph needs tools (via parent) or is done, returns to callModel
+        "__end__": "callModel"      // Subgraph is done with its part, returns to callModel
+    }
+  )
+  .addEdge("tools", "callModel"); // Tools always return to the main callModel
+
 export const graph = workflow.compile({
-  interruptBefore: [], // if you want to update the state before calling the tools
+  interruptBefore: [], 
   interruptAfter: [],
 });

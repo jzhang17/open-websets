@@ -4,10 +4,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function Home() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4">
-      <div className="text-center space-y-8 max-w-md w-full">
+      <div className="text-center max-w-md w-full">
         <h1 className="text-3xl font-bold tracking-tight">Find your (almost) perfect list</h1>
         
-        <Tabs defaultValue="people" className="w-full">
+        <Tabs defaultValue="people" className="w-full mt-8">
           <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="people">People</TabsTrigger>
             <TabsTrigger value="companies">Companies</TabsTrigger>
@@ -16,7 +16,7 @@ export default function Home() {
           </TabsList>
         </Tabs>
         
-        <div>
+        <div className="mt-2">
           <Input 
             type="text" 
             placeholder="Describe what you're looking for..." 
