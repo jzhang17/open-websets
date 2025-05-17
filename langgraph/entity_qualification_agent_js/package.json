@@ -25,6 +25,7 @@
     "@langchain/google-webauth": "^0.2.9",
     "@langchain/langgraph": "^0.2.67",
     "@langchain/langgraph-cli": "^0.0.34",
+    "exa-js": "^1.7.2",
     "langchain": "^0.3.14"
   },
   "devDependencies": {
