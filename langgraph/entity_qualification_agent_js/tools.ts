@@ -181,7 +181,13 @@ export const qualifyAllEntitiesTool = new DynamicStructuredTool({
   description: "Updates or sets the qualification summary for all entities. Provide the complete list of qualification information. This REPLACES the existing summary.",
   schema: qualifyAllEntitiesSchema,
   func: async (args: z.infer<typeof qualifyAllEntitiesSchema>) => {
-    return { qualificationSummary: args.summary as QualificationItem[] };
+    // Return an object structured to explicitly signal a state update,
+    // similar to how a Command object would work.
+    return { 
+      update: { 
+        qualificationSummary: args.summary as QualificationItem[] 
+      } 
+    };
   },
 });
 
@@ -202,20 +208,21 @@ const verifyInputsSchema = z.object({
  */
 export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
     name: "verify_qualification_consistency",
-    description: "Verifies the consistency of the qualification summary against the list of entities to qualify. Checks for duplicates, missing entities, and extra entities. Requires the current list of entities to qualify and the current qualification summary from the state.",
+    description: "Verifies the consistency of the qualification summary against the list of entities to qualify. Checks for duplicates, missing entities, extra entities, and potential name mismatches (e.g. due to spacing/casing). Requires the current list of entities to qualify and the current qualification summary from the state.",
     schema: verifyInputsSchema,
     func: async (args: z.infer<typeof verifyInputsSchema>) => {
         const { entitiesToQualify, qualificationSummary } = args;
-        const summaryEntityNames = qualificationSummary.map((item: QualificationItem) => item.entity_name); // Added type for item
+        const summaryEntityNames = qualificationSummary.map((item: QualificationItem) => item.entity_name);
 
         const issues: Record<string, any> = {
           duplicates_found_now: [],
           missing_entities_now: [],
           extra_entities_now: [],
-          // name_inconsistencies: [], // Placeholder
+          potential_name_mismatches_details: [], // New field
           final_consistency: true,
         };
 
+        // Calculate duplicates
         const nameCounts = summaryEntityNames.reduce((acc: Record<string, number>, name: string) => { // Added types for acc and name
           acc[name] = (acc[name] || 0) + 1;
           return acc;
@@ -225,15 +232,58 @@ export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
           .map(([name]) => name);
 
         const summarySet = new Set(summaryEntityNames);
-        issues.missing_entities_now = entitiesToQualify.filter((name: string) => !summarySet.has(name)); // Added type for name
-
         const entitiesToQualifySet = new Set(entitiesToQualify);
-        issues.extra_entities_now = summaryEntityNames.filter((name: string) => !entitiesToQualifySet.has(name)); // Added type for name
 
+        // Calculate initial missing and extra entities
+        const initialMissingEntities = entitiesToQualify.filter((name: string) => !summarySet.has(name)); // Added type for name
+        issues.missing_entities_now = [...initialMissingEntities]; // Store the full list
+
+        const initialExtraEntities = summaryEntityNames.filter((name: string) => !entitiesToQualifySet.has(name)); // Added type for name
+        issues.extra_entities_now = [...initialExtraEntities]; // Store the full list
+
+        // Identify potential name mismatches
+        const potentialMismatchesList: Array<{ summary_name: string; qualify_list_name: string; reason: string }> = [];
+        
+        // Use copies for matching logic to preserve the original issues.extra_entities_now and issues.missing_entities_now for reporting
+        const tempExtraForMatching = [...initialExtraEntities]; 
+        const tempMissingForMatching = [...initialMissingEntities];
+        
+        const matchedExtraIndicesInTemp = new Set<number>();
+        const matchedMissingIndicesInTemp = new Set<number>();
+
+
+        for (let i = 0; i < tempExtraForMatching.length; i++) {
+            if (matchedExtraIndicesInTemp.has(i)) continue; // This extra entity from temp list is already matched
+
+            const extraName = tempExtraForMatching[i];
+
+            for (let j = 0; j < tempMissingForMatching.length; j++) {
+                if (matchedMissingIndicesInTemp.has(j)) continue; // This missing entity from temp list is already matched
+
+                const missingName = tempMissingForMatching[j];
+
+                if (extraName.trim().toLowerCase() === missingName.trim().toLowerCase()) {
+                    potentialMismatchesList.push({
+                        summary_name: extraName, // The name as it appears in the summary (potentially with typo)
+                        qualify_list_name: missingName, // The name as it appears in the entitiesToQualify list (the correct one)
+                        reason: "Probable typo due to spacing/casing differences."
+                    });
+                    matchedExtraIndicesInTemp.add(i); // Mark this extraName as matched
+                    matchedMissingIndicesInTemp.add(j); // Mark this missingName as matched
+                    break; // Found a match for current extraName, move to the next extraName
+                }
+            }
+        }
+        issues.potential_name_mismatches_details = potentialMismatchesList;
+        
+        // The final_consistency check should still rely on the original definitions of missing/extra being empty.
+        // If potential_name_mismatches_details is not empty, it implies that
+        // initialMissingEntities and/or initialExtraEntities will also not be empty,
+        // thus final_consistency will be false.
         issues.final_consistency =
           issues.duplicates_found_now.length === 0 &&
-          issues.missing_entities_now.length === 0 &&
-          issues.extra_entities_now.length === 0;
+          initialMissingEntities.length === 0 && 
+          initialExtraEntities.length === 0;
 
         return { verificationResults: issues };
     },
@@ -322,6 +372,3 @@ export const AGENT_TOOLS = [
 export const VERIFICATION_LLM_TOOLS = [
   updateQualificationSummaryStateTool,
 ];
-
-// verifyQualificationConsistencyTool is also exported for programmatic use in the graph
-// but doesn't need to be in a separate list for an LLM if not called by one.

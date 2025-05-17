@@ -157,7 +157,8 @@ const extractEntities = new DynamicStructuredTool({
     // LangGraph's ToolNode will take this output and merge it into the graph state.
     // Because our AppStateAnnotation defines an 'entities' channel with a reducer,
     // returning { entities: args.entities } will correctly update that part of the state.
-    return { entities: args.entities };
+    const cleanedEntities = args.entities.map(entity => entity.trim());
+    return { entities: cleanedEntities };
   },
 });
 

@@ -1,4 +1,4 @@
-import { AIMessage, BaseMessage, SystemMessage } from "@langchain/core/messages";
+import { AIMessage, BaseMessage, SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { Annotation, StateGraph } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
@@ -110,7 +110,31 @@ async function agentNode(
 
   const response = await model.invoke(messagesForLlm);
   
-  return { messages: [response] };
+  // Start of new logic to handle potential state updates from tools
+  let updateFromTool: Partial<AppStateUpdate> = {};
+  const lastMessage = state.messages[state.messages.length - 1];
+
+  // Check if the latest message in the input state to this node is a ToolMessage from qualify_entities
+  // This means ToolNode ran before this current invocation of agentNode
+  if (lastMessage && lastMessage.constructor.name === "ToolMessage") {
+    const toolMessage = lastMessage as any; // Cast to any to access .name and .content
+    if (toolMessage.name === "qualify_entities") {
+      try {
+        if (typeof toolMessage.content === 'string') {
+          const parsedContent = JSON.parse(toolMessage.content);
+          if (parsedContent && parsedContent.update && Array.isArray(parsedContent.update.qualificationSummary)) {
+            updateFromTool.qualificationSummary = parsedContent.update.qualificationSummary as QualificationItem[];
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing qualificationSummary from qualify_entities tool message:", e);
+      }
+    }
+  }
+  // End of new logic
+
+  // Merge LLM response with updates from tool
+  return { messages: [response], ...updateFromTool };
 }
 
 async function programmaticVerificationNode(
@@ -165,7 +189,7 @@ async function verificationAgentNode(
     .replace("{system_time}", new Date().toISOString());
 
   const messagesForLlm: BaseMessage[] = [
-    new SystemMessage(populatedPrompt),
+    new HumanMessage(populatedPrompt),
     // No prior messages for verification agent, it gets all context in the prompt.
   ];
   
@@ -220,7 +244,8 @@ function shouldContinueMainWorkflowNode(state: AppState): string {
       return "programmaticVerificationNode";
     }
   }
-  return "__end__";
+  // If no tool calls and no qualification_complete signal, loop back to agentNode
+  return "agentNode";
 }
 
 function routeAfterProgrammaticVerificationNode(state: AppState): string {
@@ -271,7 +296,7 @@ workflow.addConditionalEdges(
   {
     "agentToolsNode": "agentToolsNode",
     "programmaticVerificationNode": "programmaticVerificationNode",
-    "__end__": "__end__",
+    "agentNode": "agentNode",
   }
 );
 workflow.addEdge("agentToolsNode", "agentNode");
