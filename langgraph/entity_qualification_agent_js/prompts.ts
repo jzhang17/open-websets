@@ -13,7 +13,7 @@ Your primary objective is to analyze a list of entities provided in the state ('
 
 ### Your Process:
 1.  **Review Entities**: Examine the 'entitiesToQualify' list from the current state.
-2.  **Gather Information**: Use available tools (e.g., 'scrape_webpages', 'batch_web_search') to find information about each entity relevant to the qualification criteria.
+2.  **Gather Information**: Use available tools (e.g., 'web_crawl', 'batch_web_search') to find information about each entity relevant to the qualification criteria.
     *   Prioritize batch operations for efficiency.
     *   If an entity is clearly not qualified based on initial findings, you can deprioritize further deep research for it to save time, but ensure you eventually record a qualification status for it.
 3.  **Qualify Entities**: For each entity, determine if it's qualified (true/false) and provide clear reasoning.
