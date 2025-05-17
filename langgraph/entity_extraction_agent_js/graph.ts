@@ -36,10 +36,9 @@ async function callModel(
   if (state.messages.length > 0) {
     const lastMessageFromState = state.messages[state.messages.length - 1];
 
-    // Check if it's a ToolMessage and specifically from extract_entities
-    // The .type property is a more idiomatic way to check message types in LangChain
+    // Check if it's a ToolMessage from extract_entities
     if (lastMessageFromState && lastMessageFromState.constructor.name === "ToolMessage") {
-      const toolMessage = lastMessageFromState as ToolMessage; // Cast after check
+      const toolMessage = lastMessageFromState as ToolMessage;
       if (toolMessage.name === "extract_entities") {
         if (typeof toolMessage.content === 'string') {
           try {
