@@ -136,7 +136,7 @@ const exaSearchSchema = z.object({
  */
 const exaSearch = new DynamicStructuredTool({
   name: "exa_search",
-  description: "Perform a web search using Exa AI. Allows specifying search type (neural, keyword) and category (article, company, personal_site). Returns 25 results.",
+  description: "Perform a web search using Exa AI. Allows specifying search type (neural, keyword) and category (article, company, personal_site). Returns 25 results. The output will include entities to qualify if successful.",
   schema: exaSearchSchema,
   func: async (args: z.infer<typeof exaSearchSchema>) => {
     const { query, type, category } = args;
@@ -167,7 +167,17 @@ const exaSearch = new DynamicStructuredTool({
       }
 
       const searchResponse = await exa.search(query, options);
-      return JSON.stringify(searchResponse.results);
+      
+      const titles = searchResponse.results
+        .map((result: ExaSearchResult) => result.title)
+        .filter((title): title is string => title !== null && title !== undefined);
+
+      const toolOutputPayload = {
+        entities_to_qualify: titles,
+        actual_search_results: searchResponse.results,
+      };
+      return JSON.stringify(toolOutputPayload);
+
     } catch (error: any) {
       // Handle potential errors from the Exa API call
       return `Error searching with Exa: ${error.message}`;

@@ -13,7 +13,6 @@ interface BaseInputProps {
 
 // Combine base props with HTML input attributes, omitting onChange
 type InputElementProps = BaseInputProps & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'>;
-type TextareaElementProps = BaseInputProps & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange' | 'onKeyDown'>;
 
 // Define the overall component props - a union of both types plus custom onChange handling
 interface InputProps extends Omit<InputElementProps, 'className'> {
@@ -67,7 +66,7 @@ function Input({
       localStorage.setItem(cacheKey, newValue);
     }
     if (propOnChange) {
-      propOnChange(e as any);
+      propOnChange(e);
     }
   };
 
