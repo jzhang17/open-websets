@@ -38,7 +38,7 @@ export default async function UuidPage({ params, searchParams }: UuidPageProps) 
           <div className="mt-8 text-sm text-gray-500">
             <p>
               This page displays the generated UUID and the submitted search query.
-              Further actions or navigation can be implemented here based on your application's logic.
+              Further actions or navigation can be implemented here based on your application&apos;s logic.
             </p>
           </div>
         </div>
