@@ -261,21 +261,42 @@ function routeAfterProgrammaticVerificationNode(state: AppState): string {
 
 function routeAfterVerificationAgentNode(state: AppState): string {
   const lastMessage = state.messages[state.messages.length - 1];
+
+  // Check for tool calls first, regardless of exact message type, as long as it has tool_calls
+  if (lastMessage && (lastMessage as AIMessage)?.tool_calls && (lastMessage as AIMessage).tool_calls.length > 0) {
+    return "verificationToolsNode";
+  }
+
+  // If no tool calls, then check for signals in content if it's an AIMessage
   if (lastMessage && lastMessage.constructor.name === "AIMessage") {
     const aiMessage = lastMessage as AIMessage;
-    if (aiMessage.tool_calls && aiMessage.tool_calls.length > 0) {
-      return "verificationToolsNode";
+    // Check for qualification_complete signal in content
+    // AIMessage.content can be string or BaseMessageContent[]
+    const content = aiMessage.content;
+    let textForSignalCheck = "";
+
+    if (typeof content === 'string') {
+      textForSignalCheck = content;
+    } else if (Array.isArray(content)) {
+      // Iterate through content blocks to find and concatenate text parts.
+      for (const block of content) {
+        // Ensure block has 'type' and 'text' properties before accessing
+        if (block && typeof block.type === 'string' && block.type === "text" && typeof block.text === 'string') {
+          textForSignalCheck += block.text + "\n"; // Concatenate if there are multiple text blocks
+        }
+      }
+      textForSignalCheck = textForSignalCheck.trim();
     }
-    if (typeof aiMessage.content === 'string') {
-      if (aiMessage.content.includes("<continue_qualification/>")) {
-        return "agentNode"; 
-      }
-      if (aiMessage.content.includes("<verification_complete/>")) {
-        return "programmaticVerificationNode";
-      }
+    
+    if (textForSignalCheck.includes("<continue_qualification/>")) {
+      return "agentNode"; 
+    }
+    if (textForSignalCheck.includes("<verification_complete/>")) {
+      return "programmaticVerificationNode";
     }
   }
-  console.warn("Unexpected response from verification agent, re-routing to programmatic verification for re-assessment.");
+  
+  console.warn("Unexpected response or state from verification agent, re-routing to programmatic verification for re-assessment.");
   return "programmaticVerificationNode";
 }
 
