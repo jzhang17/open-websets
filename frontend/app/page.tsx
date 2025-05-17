@@ -1,8 +1,16 @@
+"use client";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Building2, BookOpen, Newspaper } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+
+  const handleSubmit = () => {
+    const id = crypto.randomUUID();
+    router.push(`/${id}`);
+  };
   return (
     <div className="flex items-center justify-center min-h-screen px-4 -mt-20">
       <div className="text-center max-w-lg w-full">
@@ -30,10 +38,11 @@ export default function Home() {
         </Tabs>
         
         <div className="mt-2">
-          <Input 
-            placeholder="Describe what you're looking for..." 
+          <Input
+            placeholder="Describe what you're looking for..."
             className="w-full text-lg"
             multiline={true}
+            onButtonClick={handleSubmit}
           />
         </div>
       </div>

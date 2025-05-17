@@ -20,6 +20,7 @@ interface InputProps extends Omit<InputElementProps, 'className'> {
   className?: string;
   onChange?: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+  onButtonClick?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
 function Input({
@@ -29,6 +30,7 @@ function Input({
   defaultValue,
   onChange: propOnChange,
   onKeyDown: propOnKeyDown,
+  onButtonClick,
   multiline = false,
   ...props
 }: InputProps) {
@@ -122,6 +124,7 @@ function Input({
       <button
         ref={buttonRef}
         type="button"
+        onClick={onButtonClick}
         className="absolute inset-y-0 right-0 flex items-center justify-center w-10 text-muted-foreground hover:text-foreground"
         aria-label="Submit"
       >

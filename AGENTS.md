@@ -12,7 +12,11 @@
 │   │   ├── favicon.ico
 │   │   ├── globals.css
 │   │   ├── layout.tsx
-│   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   ├── [id]/
+│   │   │   └── page.tsx
+│   │   └── completed/
+│   │       └── page.tsx
 │   ├── components/
 │   ├── components.json
 │   ├── eslint.config.mjs
