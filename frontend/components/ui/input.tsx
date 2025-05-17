@@ -121,7 +121,7 @@ function Input({
       )}
       <button
         ref={buttonRef}
-        type="button"
+        type="submit"
         className="absolute inset-y-0 right-0 flex items-center justify-center w-10 text-muted-foreground hover:text-foreground"
         aria-label="Submit"
       >
