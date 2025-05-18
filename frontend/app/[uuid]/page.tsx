@@ -1,13 +1,9 @@
-interface UuidPageProps {
-  params: {
-    uuid: string;
-  };
-  searchParams?: { [key: string]: string | string[] | undefined };
-}
-
-export default async function UuidPage({ params, searchParams }: UuidPageProps) {
-  const { uuid } = params;
-  const query = searchParams?.query;
+export default async function UuidPage({
+  params,
+}: {
+  params: { uuid: string };
+}) {
+  const { uuid } = await params;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50">
@@ -23,18 +19,10 @@ export default async function UuidPage({ params, searchParams }: UuidPageProps) 
                 {uuid}
               </code>
             </div>
-            {query && (
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-gray-500">Search Query:</span>
-                <code className="p-2 text-sm bg-gray-100 text-gray-700 rounded-md break-all">
-                  {query}
-                </code>
-              </div>
-            )}
           </div>
           <div className="mt-8 text-sm text-gray-500">
             <p>
-              This page displays the generated UUID and the submitted search query.
+              This page displays the generated UUID.
               Further actions or navigation can be implemented here based on your application&apos;s logic.
             </p>
           </div>
