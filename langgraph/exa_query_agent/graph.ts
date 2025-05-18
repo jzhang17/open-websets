@@ -189,14 +189,23 @@ async function callModel(
 }
 
 // Simplified router for the main callModel node
-function routeMainAgentDecision(state: ParentAppState): "invoke_tools" | "__end__" {
+function routeMainAgentDecision(state: ParentAppState): "invoke_tools" | "__end__" | "callModel" {
   const messages = state.messages ?? [];
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
   if (lastMessage && (lastMessage as AIMessage).tool_calls && (lastMessage as AIMessage).tool_calls!.length > 0) {
     return "invoke_tools";
   }
-  return "__end__"; // Agent has finished or provided a final response to the user
+
+  // Check if we have enough qualified entities
+  const qualificationSummary = state.qualificationSummary ?? [];
+  if (qualificationSummary.length > 50) {
+    return "__end__"; // Sufficient entities, end the graph.
+  } else {
+    // Not enough entities, and no tool calls from last model response.
+    // Loop back to callModel to try and generate more.
+    return "callModel";
+  }
 }
 
 // Router for preparing the next qualification batch or returning to the main model
@@ -225,7 +234,8 @@ const workflow = new StateGraph(ParentAppStateAnnotation, ConfigurationSchema)
     routeMainAgentDecision,
     {
       "invoke_tools": "tools",
-      "__end__": "__end__" // Actual graph termination or final response
+      "__end__": "__end__", // Actual graph termination or final response
+      "callModel": "callModel" // Loop back if more entities are needed
     }
   )
 

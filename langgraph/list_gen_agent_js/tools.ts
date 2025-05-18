@@ -128,7 +128,7 @@ const batchWebSearch = new DynamicStructuredTool({
 // Define the schema for an individual entity
 const entitySchema = z.object({
   name: z.string().describe("The name of the extracted entity."),
-  url: z.string().url().describe("The URL associated with the entity."),
+  url: z.string().describe("The URL associated with the entity."),
 });
 
 const extractEntitiesSchema = z.object({

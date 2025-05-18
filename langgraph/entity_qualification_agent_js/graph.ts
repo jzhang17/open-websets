@@ -22,6 +22,14 @@ export interface QualificationItem {
   [key: string]: any; // allow extra fields
 }
 
+// Define the EntityType enum (mirroring list_gen_agent_js)
+export enum EntityType {
+  PEOPLE = "people",
+  COMPANIES = "companies",
+  ACADEMIC_PAPERS = "academic papers",
+  NEWS = "news",
+}
+
 // Define the new state structure including entities
 const AppStateAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
@@ -69,6 +77,15 @@ const AppStateAnnotation = Annotation.Root({
   continueQualificationSignal: Annotation<boolean>({
     reducer: (_currentState, updateValue) => typeof updateValue === 'boolean' ? updateValue : false,
     default: () => false,
+  }),
+  // Add qualificationCriteria and entityTypes here
+  qualificationCriteria: Annotation<string>({
+    reducer: (_currentState, updateValue) => updateValue, // Replace strategy
+    default: () => "",
+  }),
+  entityTypes: Annotation<EntityType[]>({ // Use the newly defined enum
+    reducer: (currentState, updateValue) => currentState.concat(updateValue), // Concat strategy
+    default: () => [],
   }),
 });
 

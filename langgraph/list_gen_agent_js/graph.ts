@@ -16,6 +16,14 @@ interface Entity {
   url: string;
 }
 
+// Define the EntityType enum
+export enum EntityType {
+  PEOPLE = "people",
+  COMPANIES = "companies",
+  ACADEMIC_PAPERS = "academic papers",
+  NEWS = "news",
+}
+
 // Define the new state structure including entities
 const AppStateAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
@@ -23,6 +31,14 @@ const AppStateAnnotation = Annotation.Root({
     default: () => [],
   }),
   entities: Annotation<Entity[]>({
+    reducer: (currentState, updateValue) => currentState.concat(updateValue),
+    default: () => [],
+  }),
+  qualificationCriteria: Annotation<string>({
+    reducer: (_currentState, updateValue) => updateValue,
+    default: () => "",
+  }),
+  entityTypes: Annotation<EntityType[]>({
     reducer: (currentState, updateValue) => currentState.concat(updateValue),
     default: () => [],
   }),
