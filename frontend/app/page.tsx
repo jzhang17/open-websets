@@ -9,7 +9,7 @@ export default function Home() {
     const query = formData.get('query') as string || "";
     const newUuid = crypto.randomUUID();
     
-    redirect(`/${newUuid}?query=${encodeURIComponent(query)}`);
+    redirect(`/${newUuid}`);
   }
 
   return (

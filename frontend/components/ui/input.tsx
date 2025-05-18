@@ -21,6 +21,11 @@ interface InputProps extends Omit<InputElementProps, 'className'> {
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement | HTMLTextAreaElement>;
 }
 
+interface CachedQuery {
+  value: string;
+  expiresAt: number;
+}
+
 function Input({
   className,
   type,
@@ -39,9 +44,19 @@ function Input({
   // Effect to load from localStorage on initial mount
   React.useEffect(() => {
     if (typeof window !== "undefined") {
-      const cachedValue = localStorage.getItem(cacheKey);
-      if (cachedValue !== null) {
-        setInputValue(cachedValue);
+      const cachedItem = localStorage.getItem(cacheKey);
+      if (cachedItem) {
+        try {
+          const parsedItem: CachedQuery = JSON.parse(cachedItem);
+          if (parsedItem.expiresAt > Date.now()) {
+            setInputValue(parsedItem.value);
+          } else {
+            localStorage.removeItem(cacheKey); // Remove expired item
+          }
+        } catch (error) {
+          // If parsing fails, it might be an old string value, remove it
+          localStorage.removeItem(cacheKey);
+        }
       }
     }
   }, [cacheKey]);
@@ -63,7 +78,9 @@ function Input({
     const newValue = e.target.value;
     setInputValue(newValue);
     if (typeof window !== "undefined") {
-      localStorage.setItem(cacheKey, newValue);
+      const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes in milliseconds
+      const itemToCache: CachedQuery = { value: newValue, expiresAt };
+      localStorage.setItem(cacheKey, JSON.stringify(itemToCache));
     }
     if (propOnChange) {
       propOnChange(e);

@@ -1,9 +1,10 @@
 export default async function UuidPage({
   params,
 }: {
-  params: { uuid: string };
+  params: Promise<{ uuid: string }>;
 }) {
-  const { uuid } = await params;
+  const resolvedParams = await params;
+  const { uuid } = resolvedParams;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50">
