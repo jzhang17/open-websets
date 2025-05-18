@@ -21,7 +21,7 @@ venv/
 docker/*.env
 
 node_modules/
-.langgrah_api/
+.langgraph_api/
 
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
