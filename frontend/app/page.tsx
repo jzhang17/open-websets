@@ -5,12 +5,10 @@ import { redirect } from 'next/navigation';
 import { AppHeader } from "@/components/AppHeader";
 
 export default function Home() {
-  async function handleSearch(formData: FormData) {
-    'use server';
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const query = formData.get('query') as string || "";
+  async function handleSearch(_formData: FormData) {
+    "use server";
     const newUuid = crypto.randomUUID();
-    
+
     redirect(`/${newUuid}`);
   }
 
