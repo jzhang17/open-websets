@@ -53,9 +53,8 @@ function Input({
           } else {
             localStorage.removeItem(cacheKey); // Remove expired item
           }
-        } catch (error) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          // If parsing fails, it might be an old string value, remove it
+        } catch {
+          // Remove stale cached value
           localStorage.removeItem(cacheKey);
         }
       }

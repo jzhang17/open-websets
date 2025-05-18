@@ -100,13 +100,16 @@ async function extractAndQueueQualificationBatchesNode(
   }
 
   const processedToolCallIdsInThisTurn = new Set<string>();
+  const toolCallMap = new Map(
+    (lastAiMessage.tool_calls ?? []).map((tc) => [tc.id, tc])
+  );
 
   for (let i = aiMessageIndex + 1; i < messages.length; i++) {
     const currentMessage = messages[i];
-    // Robust check for ToolMessage using _getType()
+    // Only handle ToolMessages
     if (currentMessage._getType() === "tool") {
-      const toolMessage = currentMessage as ToolMessage; // Cast to ToolMessage to access its properties
-      const toolCall = lastAiMessage.tool_calls!.find(tc => tc.id === toolMessage.tool_call_id);
+      const toolMessage = currentMessage as ToolMessage;
+      const toolCall = toolCallMap.get(toolMessage.tool_call_id);
 
       if (toolCall?.name === "exa_search" && toolCall.id && !processedToolCallIdsInThisTurn.has(toolCall.id)) {
         try {
@@ -123,10 +126,10 @@ async function extractAndQueueQualificationBatchesNode(
   }
 
   if (newBatches.length > 0) {
-    // New batches found, reset summary for this new set of qualifications and queue new batches.
+    // Reset the summary and queue any new batches
     return { pendingQualificationBatches: newBatches, qualificationSummary: [] };
   }
-  // No new exa_search batches found from the latest tool calls, ensure pending is empty.
+  // Nothing new found; clear the queue
   return { pendingQualificationBatches: [] };
 }
 
@@ -228,30 +231,10 @@ const workflow = new StateGraph(ParentAppStateAnnotation, ConfigurationSchema)
     }
   )
 
-  // After entityQualificationSubgraph runs, always go back to prepare the next batch
-  // The prepareNextBatchForQualification node's router will decide if there are more batches
-  // or if it's time to return to the main callModel.
-  // The subgraph's internal routing (routeSubgraphOutput) is for its own conditional logic,
-  // but its exit from the parent graph's perspective is now singular.
-  // If the subgraph itself calls tools (via parent graph's 'tools' node), that's a separate concern.
-  // For simplicity, assuming subgraph completes its current batch and returns.
-  // We need to ensure the subgraph, when it "ends" or needs tools, correctly transitions.
-  // The original subgraph routing was:
-  // "tools": "callModel", "__end__": "callModel"
-  // This needs careful thought. If subgraph calls tools, it would go through the parent's 'tools' node.
-  // For now, let's assume the subgraph completes its processing for the batch and returns.
-  // The simplest way is a direct edge.
+  // After each batch, loop back here. The next node either queues more
+  // qualifications or resumes the main model. Tool calls from the subgraph
+  // flow through this path as well.
   .addEdge("entityQualificationSubgraph", "prepareNextBatchForQualification")
-  // If the subgraph itself uses tools (and is configured to use the parent's tool node),
-  // the ToolNode's output would typically go back to the subgraph's entry or a re-evaluation point.
-  // This part of the interaction depends on how `entityQualificationSubgraph` is structured
-  // and how it's registered in the parent graph regarding tool usage.
-  // The provided `routeModelOutput` (renamed to `routeSubgraphOutput`) was for the subgraph's
-  // own decision making if it were a top-level graph. Here, it's a node.
-  // If the subgraph needs to use parent tools, its AIMessage with tool_calls would appear in `state.messages`.
-  // Then `prepareNextBatchForQualification` would try to prepare a batch (likely finding none if the subgraph just called a tool),
-  // then `routeForNextQualificationBatch` would send to `callModel`.
-  // `callModel` would see the subgraph's AIMessage with tool_calls and route to `tools`. This seems to handle it.
 
 export const graph = workflow.compile({
   interruptBefore: [], 

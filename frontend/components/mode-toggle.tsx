@@ -19,15 +19,12 @@ export function ModeToggle() {
     }
   }
 
-  // We need to wait for the component to mount to know the resolvedTheme
-  // to avoid hydration mismatches, as the server doesn't know the theme.
+  // Wait for mount to know the final theme and avoid hydration issues
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => setMounted(true), [])
 
   if (!mounted) {
-    // Render a placeholder or null on the server and during initial client render
-    // to prevent hydration mismatch, then render the actual button once mounted.
-    // Using a button with a placeholder style to maintain layout.
+    // Show a placeholder button until mounted
     return <Button variant="secondary" size="icon" disabled />
   }
 
