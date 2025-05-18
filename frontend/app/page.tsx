@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 export default function Home() {
   async function handleSearch(formData: FormData) {
     'use server';
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const query = formData.get('query') as string || "";
     const newUuid = crypto.randomUUID();
     
