@@ -2,7 +2,6 @@
  * Define the configurable parameters for the agent.
  */
 import { Annotation } from "@langchain/langgraph";
-import { SYSTEM_PROMPT } from "./prompts.js";
 import { RunnableConfig } from "@langchain/core/runnables";
 
 export const ConfigurationSchema = Annotation.Root({
@@ -26,7 +25,7 @@ export function ensureConfiguration(
   const configurable = config.configurable ?? {};
   return {
     systemPromptTemplate:
-      configurable.systemPromptTemplate ?? SYSTEM_PROMPT,
+      configurable.systemPromptTemplate ?? "",
     model: configurable.model ?? "google-genai/models/gemini-2.5-flash-preview-04-17",
   };
 }
