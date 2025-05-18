@@ -30,9 +30,7 @@
 │       ├── langchain_js/ (...)
 │       └── langgraph_js/ (...)
 ├── langgraph/
-│   ├── entity_extraction_agent_js/
-│   │   ├── .gitignore
-│   │   ├── .langgraph_api/
+│   ├── list_gen_agent_js/
 │   │   ├── configuration.ts
 │   │   ├── graph.ts
 │   │   ├── jest.config.js
@@ -45,8 +43,6 @@
 │   │   ├── utils.ts
 │   │   └── yarn.lock
 │   ├── entity_qualification_agent_js/
-│   │   ├── .gitignore
-│   │   ├── .langgraph_api/
 │   │   ├── configuration.ts
 │   │   ├── graph.ts
 │   │   ├── jest.config.js
