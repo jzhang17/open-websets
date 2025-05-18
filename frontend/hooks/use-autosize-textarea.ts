@@ -28,9 +28,9 @@ export function useAutosizeTextArea({
     currentRef.style.removeProperty("height")
     const scrollHeight = currentRef.scrollHeight
 
-    // Make sure we don't go over maxHeight
+    // Clamp to the allowed maximum
     const clampedToMax = Math.min(scrollHeight, maxHeight)
-    // Make sure we don't go less than the original height
+    // Never shrink below the starting height
     const clampedToMin = Math.max(clampedToMax, originalHeight.current)
 
     currentRef.style.height = `${clampedToMin + borderAdjustment}px`

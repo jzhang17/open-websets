@@ -225,38 +225,26 @@ export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
         const initialExtraEntities = summaryEntityNames.filter((name: string) => !entitiesToQualifySet.has(name));
         issues.extra_entities_now = [...initialExtraEntities]; // Store the full list
 
-        // Identify potential name mismatches
-        const potentialMismatchesList: Array<{ summary_name: string; qualify_list_name: string; reason: string }> = [];
-        
-        // Use copies so we don't mutate the original arrays
-        const tempExtraForMatching = [...initialExtraEntities];
-        const tempMissingForMatching = [...initialMissingEntities];
-        
-        const matchedExtraIndicesInTemp = new Set<number>();
-        const matchedMissingIndicesInTemp = new Set<number>();
+        // Identify potential name mismatches (case/space differences)
+        const normalizedMissing = new Map(
+          initialMissingEntities.map((name) => [name.trim().toLowerCase(), name])
+        );
+        const potentialMismatchesList: Array<{
+          summary_name: string;
+          qualify_list_name: string;
+          reason: string;
+        }> = [];
 
-
-        for (let i = 0; i < tempExtraForMatching.length; i++) {
-            if (matchedExtraIndicesInTemp.has(i)) continue; // This extra entity from temp list is already matched
-
-            const extraName = tempExtraForMatching[i];
-
-            for (let j = 0; j < tempMissingForMatching.length; j++) {
-                if (matchedMissingIndicesInTemp.has(j)) continue; // This missing entity from temp list is already matched
-
-                const missingName = tempMissingForMatching[j];
-
-                if (extraName.trim().toLowerCase() === missingName.trim().toLowerCase()) {
-                    potentialMismatchesList.push({
-                        summary_name: extraName, // The name as it appears in the summary (potentially with typo)
-                        qualify_list_name: missingName, // The name as it appears in the entitiesToQualify list (the correct one)
-                        reason: "Probable typo due to spacing/casing differences."
-                    });
-                    matchedExtraIndicesInTemp.add(i); // Mark this extraName as matched
-                    matchedMissingIndicesInTemp.add(j); // Mark this missingName as matched
-                    break; // Found a match for current extraName, move to the next extraName
-                }
-            }
+        for (const extraName of initialExtraEntities) {
+          const match = normalizedMissing.get(extraName.trim().toLowerCase());
+          if (match) {
+            potentialMismatchesList.push({
+              summary_name: extraName,
+              qualify_list_name: match,
+              reason: "Probable typo due to spacing/casing differences.",
+            });
+            normalizedMissing.delete(extraName.trim().toLowerCase());
+          }
         }
         issues.potential_name_mismatches_details = potentialMismatchesList;
         

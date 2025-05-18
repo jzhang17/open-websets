@@ -100,13 +100,16 @@ async function extractAndQueueQualificationBatchesNode(
   }
 
   const processedToolCallIdsInThisTurn = new Set<string>();
+  const toolCallMap = new Map(
+    (lastAiMessage.tool_calls ?? []).map((tc) => [tc.id, tc])
+  );
 
   for (let i = aiMessageIndex + 1; i < messages.length; i++) {
     const currentMessage = messages[i];
-    // Robust check for ToolMessage using _getType()
+    // Only handle ToolMessages
     if (currentMessage._getType() === "tool") {
-      const toolMessage = currentMessage as ToolMessage; // Cast to ToolMessage to access its properties
-      const toolCall = lastAiMessage.tool_calls!.find(tc => tc.id === toolMessage.tool_call_id);
+      const toolMessage = currentMessage as ToolMessage;
+      const toolCall = toolCallMap.get(toolMessage.tool_call_id);
 
       if (toolCall?.name === "exa_search" && toolCall.id && !processedToolCallIdsInThisTurn.has(toolCall.id)) {
         try {
@@ -123,10 +126,10 @@ async function extractAndQueueQualificationBatchesNode(
   }
 
   if (newBatches.length > 0) {
-    // New batches found, reset summary for this new set of qualifications and queue new batches.
+    // Reset the summary and queue any new batches
     return { pendingQualificationBatches: newBatches, qualificationSummary: [] };
   }
-  // No new exa_search batches found from the latest tool calls, ensure pending is empty.
+  // Nothing new found; clear the queue
   return { pendingQualificationBatches: [] };
 }
 

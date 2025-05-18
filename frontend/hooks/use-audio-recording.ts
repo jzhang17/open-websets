@@ -16,7 +16,7 @@ export function useAudioRecording({
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null)
-  const activeRecordingRef = useRef<any>(null)
+  const activeRecordingRef = useRef<Promise<Blob> | null>(null)
 
   useEffect(() => {
     const checkSpeechSupport = async () => {
@@ -33,9 +33,8 @@ export function useAudioRecording({
     setIsRecording(false)
     setIsTranscribing(true)
     try {
-      // First stop the recording to get the final blob
+      // Stop the recorder and wait for the blob
       recordAudio.stop()
-      // Wait for the recording promise to resolve with the final blob
       const recording = await activeRecordingRef.current
       if (transcribeAudio) {
         const text = await transcribeAudio(recording)
@@ -59,13 +58,13 @@ export function useAudioRecording({
       try {
         setIsListening(true)
         setIsRecording(true)
-        // Get audio stream first
+        // Request microphone access
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
         })
         setAudioStream(stream)
 
-        // Start recording with the stream
+        // Begin recording
         activeRecordingRef.current = recordAudio(stream)
       } catch (error) {
         console.error("Error recording audio:", error)
