@@ -12,7 +12,7 @@ import { loadChatModel } from "./utils.js";
 import { 
     graph as entityQualificationSubgraph, 
     QualificationItem 
-} from "../entity_qualification_agent_js/graph.js";
+} from "./entity_qualification_agent_js/graph.js";
 
 // Explicitly define the messages channel annotation
 const messagesChannelAnnotation = Annotation<BaseMessage[]>({
