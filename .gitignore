@@ -39,8 +39,9 @@ node_modules/
 /coverage
 
 # next.js
-/.next/
+.next/
 /out/
+next-env.d.ts
 
 # production
 /build
