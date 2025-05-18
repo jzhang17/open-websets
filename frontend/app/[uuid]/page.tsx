@@ -1,11 +1,13 @@
-interface UuidPageProps {
-  params: {
-    uuid: string;
-  };
-  searchParams?: { [key: string]: string | string[] | undefined };
+import type { PageProps } from "next";
+
+interface Params {
+  uuid: string;
 }
 
-export default async function UuidPage({ params, searchParams }: UuidPageProps) {
+export default async function UuidPage({
+  params,
+  searchParams,
+}: PageProps<Params>) {
   const { uuid } = params;
   const query = searchParams?.query;
 
@@ -42,4 +44,4 @@ export default async function UuidPage({ params, searchParams }: UuidPageProps) 
       </main>
     </div>
   );
-} 
+}
