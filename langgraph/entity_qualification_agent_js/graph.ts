@@ -9,8 +9,10 @@ import {
   VERIFICATION_LLM_TOOLS, 
   verifyQualificationConsistencyTool 
 } from "./tools.js";
-import { VERIFICATION_PROMPT_TEMPLATE } from "./prompts.js";
 import { loadChatModel } from "./utils.js";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
 
 // Define the structure for an individual qualification item
 export interface QualificationItem {
@@ -73,6 +75,20 @@ const AppStateAnnotation = Annotation.Root({
 type AppState = typeof AppStateAnnotation.State;
 type AppStateUpdate = typeof AppStateAnnotation.Update;
 
+// Load prompts from markdown files
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const systemPromptPath = path.join(__dirname, "system_prompt.md");
+const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
+const verificationPromptPath = path.join(
+  __dirname,
+  "verification_prompt_template.md",
+);
+const verificationPromptTemplate = fs.readFileSync(
+  verificationPromptPath,
+  "utf-8",
+);
+
 const MAX_VERIFICATION_LOOPS = 5;
 
 // Renamed and refactored from original callModel
@@ -84,10 +100,12 @@ async function agentNode(
   const model = (await loadChatModel(configuration.model)).bindTools(AGENT_TOOLS);
 
   // Prepare system message
-  const systemPromptTemplate = configuration.systemPromptTemplate; // This is SYSTEM_PROMPT from prompts.ts
-  // The SYSTEM_PROMPT itself refers to state.entitiesToQualify and state.qualificationSummary
+  // The system prompt references state.entitiesToQualify and state.qualificationSummary
   // It also has a {system_time} placeholder.
-  let formattedSystemPrompt = systemPromptTemplate.replace("{system_time}", new Date().toISOString());
+  let formattedSystemPrompt = systemPrompt.replace(
+    "{system_time}",
+    new Date().toISOString(),
+  );
 
   // Optionally, provide a snapshot of key state fields for easier access by LLM, though prompt guides it to use state.
   const entitiesListString = state.entitiesToQualify?.length > 0 
@@ -196,7 +214,7 @@ async function verificationAgentNode(
   const qualificationSummaryString = JSON.stringify(state.qualificationSummary, null, 2);
   const verificationIssuesString = JSON.stringify(state.verificationResults, null, 2);
 
-  const populatedPrompt = VERIFICATION_PROMPT_TEMPLATE
+  const populatedPrompt = verificationPromptTemplate
     .replace("{entitiesToQualifyString}", entitiesToQualifyString)
     .replace("{qualificationSummaryString}", qualificationSummaryString)
     .replace("{verificationIssuesString}", verificationIssuesString)

@@ -6,6 +6,9 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
 import { loadChatModel } from "./utils.js";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
 
 // Define the new state structure including entities
 const AppStateAnnotation = Annotation.Root({
@@ -21,6 +24,12 @@ const AppStateAnnotation = Annotation.Root({
 
 type AppState = typeof AppStateAnnotation.State;
 type AppStateUpdate = typeof AppStateAnnotation.Update;
+
+// Load the system prompt from the markdown file
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const systemPromptPath = path.join(__dirname, "system_prompt.md");
+const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
 
 // Define the function that calls the model
 async function callModel(
@@ -69,7 +78,7 @@ async function callModel(
   const response = await model.invoke([
     {
       role: "system",
-      content: configuration.systemPromptTemplate.replace(
+      content: systemPrompt.replace(
         "{system_time}",
         new Date().toISOString(),
       ),
