@@ -25,23 +25,31 @@ const messagesChannelAnnotation = Annotation<BaseMessage[]>({
 
 const ParentAppStateAnnotation = Annotation.Root({
   messages: messagesChannelAnnotation,
-  entitiesToQualify: Annotation<string[]>({
+  entitiesToQualify: Annotation<string[]>({ // Current batch for subgraph
     reducer: (_currentState: string[] | undefined, updateValue: string[] | undefined): string[] => {
-      // If updateValue is an array, replace current state with it.
-      // Otherwise, keep current state (or default to empty if current is undefined).
       return Array.isArray(updateValue) ? updateValue : (_currentState ?? []);
     },
     default: () => [],
   }),
-  qualificationSummary: Annotation<QualificationItem[]>({
+  pendingQualificationBatches: Annotation<string[][]>({ // Queue of batches from exa_search
+    reducer: (_currentState, updateValue) => Array.isArray(updateValue) ? updateValue : (_currentState ?? []),
+    default: () => [],
+  }),
+  qualificationSummary: Annotation<QualificationItem[]>({ // Accumulates results from subgraph
     reducer: (
-      _currentState: QualificationItem[] | undefined, 
+      currentState: QualificationItem[] = [],
       updateValue: QualificationItem | QualificationItem[] | undefined
     ): QualificationItem[] => {
-      if (Array.isArray(updateValue)) {
-        return updateValue; // Replace
+      if (updateValue === undefined) return currentState;
+
+      // Explicit reset signal: if updateValue is an empty array.
+      if (Array.isArray(updateValue) && updateValue.length === 0) {
+          return []; // Reset the summary
       }
-      return Array.isArray(_currentState) ? _currentState : []; 
+
+      const itemsToAdd: QualificationItem[] = Array.isArray(updateValue) ? updateValue : [updateValue];
+      // Ensure not to concat undefined items from a single item update
+      return currentState.concat(itemsToAdd.filter(item => item !== undefined && item !== null));
     },
     default: () => [],
   }),
@@ -68,55 +76,78 @@ const __dirname = path.dirname(__filename);
 const systemPromptPath = path.join(__dirname, "system_prompt.md");
 const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
 
-// Node to prepare entities for the qualification subgraph
-async function prepareForQualificationNode(
-  state: ParentAppState, 
+// Node to extract entities from exa_search tool calls and queue them
+async function extractAndQueueQualificationBatchesNode(
+  state: ParentAppState,
 ): Promise<ParentAppStateUpdate> {
   const messages = state.messages ?? [];
-  let entitiesToSet: string[] = [];
+  const newBatches: string[][] = [];
   let aiMessageIndex = -1;
 
   // Find the last AIMessage that might have triggered tool calls
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i] instanceof AIMessage) {
+    if (messages[i]._getType() === "ai") {
       aiMessageIndex = i;
       break;
     }
   }
 
-  if (aiMessageIndex === -1) return {}; // No AIMessage found
+  if (aiMessageIndex === -1) return { pendingQualificationBatches: [], qualificationSummary: [] };
 
   const lastAiMessage = messages[aiMessageIndex] as AIMessage;
   if (!lastAiMessage.tool_calls || lastAiMessage.tool_calls.length === 0) {
-    return {}; // Last AIMessage didn't make tool calls
+    return { pendingQualificationBatches: [], qualificationSummary: [] };
   }
 
-  // Collect entities from all exa_search tool calls made by the last AIMessage
+  const processedToolCallIdsInThisTurn = new Set<string>();
+
   for (let i = aiMessageIndex + 1; i < messages.length; i++) {
     const currentMessage = messages[i];
-    // Ensure ToolMessage is correctly identified (it's a class)
-    if (currentMessage instanceof BaseMessage && currentMessage.constructor.name === "ToolMessage") {
-      const toolMessage = currentMessage as ToolMessage; // Cast for property access
-      const toolCall = lastAiMessage.tool_calls.find(tc => tc.id === toolMessage.tool_call_id);
-      if (toolCall?.name === "exa_search") {
+    // Robust check for ToolMessage using _getType()
+    if (currentMessage._getType() === "tool") {
+      const toolMessage = currentMessage as ToolMessage; // Cast to ToolMessage to access its properties
+      const toolCall = lastAiMessage.tool_calls!.find(tc => tc.id === toolMessage.tool_call_id);
+
+      if (toolCall?.name === "exa_search" && toolCall.id && !processedToolCallIdsInThisTurn.has(toolCall.id)) {
         try {
           const toolContent = JSON.parse(toolMessage.content as string);
-          if (toolContent && Array.isArray(toolContent.entities_to_qualify)) {
-            entitiesToSet = entitiesToSet.concat(toolContent.entities_to_qualify);
+          if (toolContent && Array.isArray(toolContent.entities_to_qualify) && toolContent.entities_to_qualify.length > 0) {
+            newBatches.push(toolContent.entities_to_qualify);
+            processedToolCallIdsInThisTurn.add(toolCall.id);
           }
         } catch (e) {
-          console.warn("Could not parse exa_search tool content in prepareForQualificationNode:", e);
+          console.warn("Could not parse exa_search tool content in extractAndQueueQualificationBatchesNode:", e);
         }
       }
     }
   }
 
-  if (entitiesToSet.length > 0) {
-    const uniqueEntities = Array.from(new Set(entitiesToSet));
-    return { entitiesToQualify: uniqueEntities };
+  if (newBatches.length > 0) {
+    // New batches found, reset summary for this new set of qualifications and queue new batches.
+    return { pendingQualificationBatches: newBatches, qualificationSummary: [] };
   }
+  // No new exa_search batches found from the latest tool calls, ensure pending is empty.
+  return { pendingQualificationBatches: [] };
+}
 
-  return {}; // No entities found from exa_search calls, or no update needed
+// Node to prepare the next batch of entities for the qualification subgraph
+async function prepareNextBatchForQualificationNode(
+  state: ParentAppState,
+): Promise<ParentAppStateUpdate> {
+  const batches = state.pendingQualificationBatches ?? [];
+  if (batches.length > 0) {
+    const nextBatch = batches[0];
+    const remainingBatches = batches.slice(1);
+    return {
+      entitiesToQualify: nextBatch,
+      pendingQualificationBatches: remainingBatches,
+    };
+  }
+  // No more batches
+  return {
+    entitiesToQualify: [], // Clear current batch
+    pendingQualificationBatches: [], // Ensure queue is empty
+  };
 }
 
 async function callModel(
@@ -134,63 +165,44 @@ async function callModel(
       ),
     },
     ...(state.messages ?? []),
+    // Include qualification summary if available, so the model is aware of previous qualifications
+    ...(state.qualificationSummary && state.qualificationSummary.length > 0
+      ? [{ role: "system", content: `Qualification Summary:
+${JSON.stringify(state.qualificationSummary, null, 2)}` }]
+      : []),
   ]);
   return { messages: [response] };
 }
 
-// Original router, used by the subgraph
-function routeModelOutput(state: ParentAppState): string { 
-  const messages = state.messages ?? [];
-  if (messages.length === 0) {
-    return "__end__"; 
-  }
-  const lastMessage = messages[messages.length - 1]; 
-  if (lastMessage && (lastMessage as AIMessage).tool_calls && (lastMessage as AIMessage).tool_calls!.length > 0) {
-    return "tools";
-  }
-  else {
-    return "__end__";
-  }
-}
-
-// New router for the main callModel node for 3-way decision
-function routeMainAgentDecision(state: ParentAppState): "invoke_tools" | "invoke_subgraph" | "terminate_process" {
+// Simplified router for the main callModel node
+function routeMainAgentDecision(state: ParentAppState): "invoke_tools" | "__end__" {
   const messages = state.messages ?? [];
   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
-  // 1. Check for tool calls from callModel's own output
   if (lastMessage && (lastMessage as AIMessage).tool_calls && (lastMessage as AIMessage).tool_calls!.length > 0) {
     return "invoke_tools";
   }
-
-  // 2. If no tools from callModel, decide if subgraph needs to run or if process should end.
-  // Simple logic: if qualificationSummary has data, assume subgraph has done its job, so terminate.
-  // Otherwise, invoke the subgraph.
-  if (state.qualificationSummary && state.qualificationSummary.length > 0) {
-    return "terminate_process";
-  } else {
-    return "invoke_subgraph";
-  }
+  return "__end__"; // Agent has finished or provided a final response to the user
 }
 
-// New router after tool processing
-function routeAfterToolProcessing(state: ParentAppState): "entityQualificationSubgraph" | "callModel" {
+// Router for preparing the next qualification batch or returning to the main model
+function routeForNextQualificationBatch(state: ParentAppState): "entityQualificationSubgraph" | "callModel" {
   if (state.entitiesToQualify && state.entitiesToQualify.length > 0) {
-    // If there are entities to qualify, and no summary yet for this batch (implicit)
-    // This condition might need refinement if qualification can be partial
-    // and we want to avoid re-sending to subgraph if it's already processing or done.
-    // For now, if entities are present, try to qualify.
-    return "entityQualificationSubgraph";
-  } else {
-    return "callModel"; // No entities to qualify, or other tools ran, let main model decide.
+    return "entityQualificationSubgraph"; // Has a batch, go to subgraph
   }
+  // No more batches in pendingQualificationBatches or entitiesToQualify is cleared.
+  // Qualification cycle for this tool invocation is complete.
+  // Go back to main model, which will now have the accumulated qualificationSummary.
+  return "callModel";
 }
 
 const workflow = new StateGraph(ParentAppStateAnnotation, ConfigurationSchema)
   .addNode("callModel", callModel)
-  .addNode("entityQualificationSubgraph", entityQualificationSubgraph as any) 
+  .addNode("entityQualificationSubgraph", entityQualificationSubgraph as any)
   .addNode("tools", new ToolNode(TOOLS))
-  .addNode("prepareForQualification", prepareForQualificationNode)
+  .addNode("extractAndQueueQualificationBatches", extractAndQueueQualificationBatchesNode)
+  .addNode("prepareNextBatchForQualification", prepareNextBatchForQualificationNode)
+
   .addEdge("__start__", "callModel")
 
   // Conditional routing for the main callModel node
@@ -199,32 +211,47 @@ const workflow = new StateGraph(ParentAppStateAnnotation, ConfigurationSchema)
     routeMainAgentDecision,
     {
       "invoke_tools": "tools",
-      "invoke_subgraph": "entityQualificationSubgraph",
-      "terminate_process": "__end__" // Actual graph termination
+      "__end__": "__end__" // Actual graph termination or final response
     }
   )
-  
-  .addEdge("tools", "prepareForQualification")
 
-  // Conditional routing after preparation node
+  .addEdge("tools", "extractAndQueueQualificationBatches")
+  .addEdge("extractAndQueueQualificationBatches", "prepareNextBatchForQualification")
+
+  // Conditional routing after trying to prepare the next batch
   .addConditionalEdges(
-    "prepareForQualification",
-    routeAfterToolProcessing,
+    "prepareNextBatchForQualification",
+    routeForNextQualificationBatch,
     {
       "entityQualificationSubgraph": "entityQualificationSubgraph",
-      "callModel": "callModel"
+      "callModel": "callModel" // All batches processed, back to main model
     }
   )
 
-  // Conditional routing for the entityQualificationSubgraph
-  .addConditionalEdges(
-    "entityQualificationSubgraph", 
-    routeModelOutput, // Subgraph uses the simpler 2-way router
-    {
-        "tools": "callModel",         // Subgraph needs tools (via parent) or is done, returns to callModel
-        "__end__": "callModel"      // Subgraph is done with its part, returns to callModel
-    }
-  )
+  // After entityQualificationSubgraph runs, always go back to prepare the next batch
+  // The prepareNextBatchForQualification node's router will decide if there are more batches
+  // or if it's time to return to the main callModel.
+  // The subgraph's internal routing (routeSubgraphOutput) is for its own conditional logic,
+  // but its exit from the parent graph's perspective is now singular.
+  // If the subgraph itself calls tools (via parent graph's 'tools' node), that's a separate concern.
+  // For simplicity, assuming subgraph completes its current batch and returns.
+  // We need to ensure the subgraph, when it "ends" or needs tools, correctly transitions.
+  // The original subgraph routing was:
+  // "tools": "callModel", "__end__": "callModel"
+  // This needs careful thought. If subgraph calls tools, it would go through the parent's 'tools' node.
+  // For now, let's assume the subgraph completes its processing for the batch and returns.
+  // The simplest way is a direct edge.
+  .addEdge("entityQualificationSubgraph", "prepareNextBatchForQualification")
+  // If the subgraph itself uses tools (and is configured to use the parent's tool node),
+  // the ToolNode's output would typically go back to the subgraph's entry or a re-evaluation point.
+  // This part of the interaction depends on how `entityQualificationSubgraph` is structured
+  // and how it's registered in the parent graph regarding tool usage.
+  // The provided `routeModelOutput` (renamed to `routeSubgraphOutput`) was for the subgraph's
+  // own decision making if it were a top-level graph. Here, it's a node.
+  // If the subgraph needs to use parent tools, its AIMessage with tool_calls would appear in `state.messages`.
+  // Then `prepareNextBatchForQualification` would try to prepare a batch (likely finding none if the subgraph just called a tool),
+  // then `routeForNextQualificationBatch` would send to `callModel`.
+  // `callModel` would see the subgraph's AIMessage with tool_calls and route to `tools`. This seems to handle it.
 
 export const graph = workflow.compile({
   interruptBefore: [], 
