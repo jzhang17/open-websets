@@ -2,6 +2,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Building2, BookOpen, Newspaper } from "lucide-react";
 import { redirect } from 'next/navigation';
+import { ModeToggle } from "@/components/mode-toggle";
+import { GithubButton } from "@/components/ui/github-button";
 
 export default function Home() {
   async function handleSearch(formData: FormData) {
@@ -16,6 +18,10 @@ export default function Home() {
   return (
     <div className="flex items-center justify-center min-h-screen px-4 -mt-20">
       <div className="text-center max-w-lg w-full">
+        <div className="absolute top-4 right-4 flex items-center">
+          <GithubButton text="" />
+          <ModeToggle />
+        </div>
         <h1 className="text-2xl font-bold tracking-tight">Find your (almost) perfect list</h1>
 
         <Tabs defaultValue="people" className="w-full mt-4">

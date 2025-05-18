@@ -115,7 +115,7 @@ function Input({
           onKeyDown={handleKeyDown}
           className={cn(
             sharedClassName,
-            "w-full resize-none overflow-hidden whitespace-pre-wrap break-words py-3"
+            "w-full resize-none overflow-hidden whitespace-pre-wrap break-words py-[11px]"
           )}
           rows={1}
           style={{ 
