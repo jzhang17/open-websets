@@ -33,7 +33,7 @@ Use the qualification criteria provided in the state ('qualificationCriteria'), 
 -   If you need to access the current list of entities to qualify, refer to the 'entitiesToQualify' field in the state.
 -   If you need to access the current qualification summary (e.g., to build upon it before calling 'qualify_entities'), refer to the 'qualificationSummary' field in the state.
 -   The language model you are using has built-in capabilities to call the tools provided. When you decide to use a tool, call it directly using the model's tool-calling features.
--   Each response MUST end with a tool call. If you have finished processing all entities and made the final 'qualify_entities' tool call, the system will handle the next steps.
+-   Each response MUST end with either a tool call or the `<qualification_complete/>` tag.
 -   If no entities are provided in 'entitiesToQualify', you may indicate that and wait for entities or end if appropriate.
 
 Begin! Your performance is critical.

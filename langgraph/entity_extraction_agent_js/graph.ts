@@ -10,13 +10,19 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
+// Define the structure for an entity
+interface Entity {
+  name: string;
+  url: string;
+}
+
 // Define the new state structure including entities
 const AppStateAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: (currentState, updateValue) => currentState.concat(updateValue),
     default: () => [],
   }),
-  entities: Annotation<string[]>({
+  entities: Annotation<Entity[]>({
     reducer: (currentState, updateValue) => currentState.concat(updateValue),
     default: () => [],
   }),
@@ -41,7 +47,7 @@ async function callModel(
 
   const model = (await loadChatModel(configuration.model)).bindTools(TOOLS);
 
-  let parsedEntitiesFromTool: string[] | undefined = undefined;
+  let parsedEntitiesFromTool: Entity[] | undefined = undefined;
   if (state.messages.length > 0) {
     const lastMessageFromState = state.messages[state.messages.length - 1];
 
@@ -53,9 +59,13 @@ async function callModel(
           try {
             const toolOutput = JSON.parse(toolMessage.content);
             if (toolOutput.entities && Array.isArray(toolOutput.entities)) {
-              // Ensure all extracted entities are strings
+              // Ensure all extracted entities are objects with name and url
               parsedEntitiesFromTool = toolOutput.entities.filter(
-                (entity: unknown): entity is string => typeof entity === 'string'
+                (entity: any): entity is Entity => 
+                  typeof entity === 'object' &&
+                  entity !== null &&
+                  typeof entity.name === 'string' &&
+                  typeof entity.url === 'string'
               );
             }
           } catch (e) {

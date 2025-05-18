@@ -125,29 +125,103 @@ const batchWebSearch = new DynamicStructuredTool({
   },
 });
 
+// Define the schema for an individual entity
+const entitySchema = z.object({
+  name: z.string().describe("The name of the extracted entity."),
+  url: z.string().url().describe("The URL associated with the entity."),
+});
+
 const extractEntitiesSchema = z.object({
-  entities: z.array(z.string()).describe("A list of entities (strings) to add."),
+  entities: z.array(entitySchema).describe("A list of entities, where each entity has a name and a URL."),
 });
 
 /**
  * Extracts and reports entities identified by the agent.
+ * Each entity should have a name and a URL.
  * The graph will handle updating the overall state with these entities.
  */
 const extractEntities = new DynamicStructuredTool({
   name: "extract_entities",
-  description: "Use this tool to report entities you have identified. Provide entities as a list of strings. The graph will update the main state.",
+  description: "Use this tool to report entities you have identified. Provide entities as a list, where each entity is an object with 'name' and 'url' fields. The graph will update the main state.",
   schema: extractEntitiesSchema,
   func: async (args: z.infer<typeof extractEntitiesSchema>) => {
     // The tool's job is to return the data that should update the 'entities' channel in the state.
     // LangGraph's ToolNode will take this output and merge it into the graph state.
     // Because our AppStateAnnotation defines an 'entities' channel with a reducer,
     // returning { entities: args.entities } will correctly update that part of the state.
-    const cleanedEntities = args.entities.map(entity => entity.trim());
+    
+    // Optionally, add any cleaning or validation for names and URLs here
+    const cleanedEntities = args.entities.map(entity => ({
+      name: entity.name.trim(),
+      url: entity.url.trim(),
+    }));
     return { entities: cleanedEntities };
   },
 });
 
+const exaSearchSchema = z.object({
+  query: z.string().describe("The search query."),
+  type: z.enum(["neural", "keyword"]).optional().describe("The type of search to perform. 'neural' for semantic search, 'keyword' for traditional keyword search."),
+  category: z.enum(["company", "research paper", "news", "pdf", "github", "tweet", "personal site", "linkedin profile", "financial report"]).optional().describe("The category of content to search for. Limits results to a certain type of document."),
+});
+
+/**
+ * Performs a web search using Exa AI with two modes and category filtering. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results, including entities to qualify and full result details.
+ */
+
+const exaSearch = new DynamicStructuredTool({
+  name: "exa_search",
+  description: "Perform a web search using Exa AI with two modes and category filtering. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results, including entities to qualify and full result details.",
+  schema: exaSearchSchema,
+  func: async (args: z.infer<typeof exaSearchSchema>) => {
+    const { query, type, category } = args;
+
+    const EXA_API_KEY = process.env.EXA_API_KEY;
+    if (!EXA_API_KEY) {
+      return "Error: EXA_API_KEY not found in environment variables.";
+    }
+    if (!query) {
+      return "Error: No query provided.";
+    }
+
+    const exa = new Exa(EXA_API_KEY);
+
+    try {
+      // Type assertion for the options object
+      const options: {
+        numResults: number;
+        type?: "neural" | "keyword";
+        category?: "company" | "research paper" | "news" | "pdf" | "github" | "tweet" | "personal site" | "linkedin profile" | "financial report";
+      } = { numResults: 25 };
+
+      if (type) {
+        options.type = type;
+      }
+      if (category) {
+        options.category = category;
+      }
+
+      const searchResponse = await exa.search(query, options);
+      
+      const titles = searchResponse.results
+        .map((result: ExaSearchResult) => result.title)
+        .filter((title): title is string => title !== null && title !== undefined);
+
+      const toolOutputPayload = {
+        entities_to_qualify: titles,
+        actual_search_results: searchResponse.results,
+      };
+      return JSON.stringify(toolOutputPayload);
+
+    } catch (error: any) {
+      // Handle potential errors from the Exa API call
+      return `Error searching with Exa: ${error.message}`;
+    }
+  },
+});
+
 export const TOOLS = [
+  exaSearch,
   webCrawl,
   batchWebSearch,
   extractEntities,
