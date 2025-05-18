@@ -18,7 +18,7 @@ interface Message {
 interface ChatSidebarProps {
   uuid: string;
   isOpen: boolean;
-  toggleSidebar: () => void;
+  toggleSidebar: () => void; // No longer optional
 }
 
 export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {

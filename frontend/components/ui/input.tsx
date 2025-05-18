@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from "react"
-
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils"
 
 // Define the common props and specific props for input and textarea
@@ -9,6 +9,7 @@ interface BaseInputProps {
   cacheKey?: string;
   multiline?: boolean;
   className?: string;
+  isLoading?: boolean;
 }
 
 // Combine base props with HTML input attributes, omitting onChange
@@ -34,6 +35,7 @@ function Input({
   onChange: propOnChange,
   onKeyDown: propOnKeyDown,
   multiline = false,
+  isLoading = false,
   ...props
 }: InputProps) {
   // Initialize state with defaultValue or empty string
@@ -88,7 +90,7 @@ function Input({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    if (multiline && e.key === 'Enter' && !e.shiftKey) {
+    if (multiline && e.key === 'Enter' && !e.shiftKey && !isLoading) {
       e.preventDefault();
       buttonRef.current?.click();
     }
@@ -120,6 +122,7 @@ function Input({
           style={{ 
             minHeight: "48px"
           }}
+          disabled={isLoading || props.disabled}
           {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
         />
       ) : (
@@ -132,6 +135,7 @@ function Input({
             sharedClassName,
             "flex h-9 w-full"
           )}
+          disabled={isLoading || props.disabled}
           {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
         />
       )}
@@ -140,8 +144,13 @@ function Input({
         type="submit"
         className="absolute inset-y-0 right-0 flex items-center justify-center w-10 text-muted-foreground hover:text-foreground"
         aria-label="Submit"
+        disabled={isLoading || props.disabled}
       >
-        →
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          '→'
+        )}
       </button>
     </div>
   )

@@ -1,15 +1,21 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Building2, BookOpen, Newspaper } from "lucide-react";
-import { redirect } from 'next/navigation';
 import { AppHeader } from "@/components/AppHeader";
 
 export default function Home() {
-  async function handleSearch(_formData: FormData) {
-    "use server";
-    const newUuid = crypto.randomUUID();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
-    redirect(`/${newUuid}`);
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsLoading(true);
+    const newUuid = crypto.randomUUID();
+    router.push(`/${newUuid}`);
   }
 
   return (
@@ -42,12 +48,14 @@ export default function Home() {
             </TabsList>
           </Tabs>
           
-          <form action={handleSearch} className="mt-4 flex flex-col items-center space-y-4">
+          <form onSubmit={handleSubmit} className="mt-4 flex flex-col items-center space-y-4">
             <Input 
               name="query"
               placeholder="Describe what you're looking for..." 
               className="w-full text-lg bg-background border-input"
               multiline={true}
+              disabled={isLoading}
+              isLoading={isLoading}
             />
           </form>
         </div>
