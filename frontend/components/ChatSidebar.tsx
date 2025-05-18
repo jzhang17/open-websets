@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+// import { useState } from "react"; // No longer needed here
 import { MessageInput } from "@/components/ui/message-input";
 import { MessageList } from "@/components/ui/message-list";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
+import { useState } from "react"; // Keep for messages and input state
 
 // Define the Message interface, matching the one from shadcn-chatbot-kit
 interface Message {
@@ -16,10 +17,11 @@ interface Message {
 
 interface ChatSidebarProps {
   uuid: string;
+  isOpen: boolean;
+  toggleSidebar: () => void;
 }
 
-export function ChatSidebar({ uuid }: ChatSidebarProps) {
-  const [isOpen, setIsOpen] = useState(true); // Sidebar is open by default
+export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {
   const [messages, setMessages] = useState<Message[]>([
     { id: "1", role: "assistant", content: "Hello! How can I help you today?" },
     { id: "2", role: "user", content: "I need information about this UUID." },
@@ -27,8 +29,6 @@ export function ChatSidebar({ uuid }: ChatSidebarProps) {
   ]);
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const toggleSidebar = () => setIsOpen(!isOpen);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLTextAreaElement> | string
@@ -72,22 +72,24 @@ export function ChatSidebar({ uuid }: ChatSidebarProps) {
   return (
     <>
       <aside
-        className={`flex flex-col bg-gray-50 h-screen transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? "w-96 p-4 border-l" : "w-0 p-0 border-transparent" // Animate width, padding, and border visibility
+        className={`fixed top-0 right-0 flex flex-col bg-sidebar h-screen transition-all duration-300 ease-in-out overflow-hidden z-30 text-sidebar-foreground ${
+          isOpen ? "w-96 p-4 border-l border-sidebar-border" : "w-0 p-0 border-transparent"
         }`}
       >
         {/* Content is now always mounted but display is controlled, to avoid remounting issues */}
         <div className={`${isOpen ? 'flex' : 'hidden'} flex-col flex-grow min-h-0`}>
-          <div className="border-b flex justify-between items-center pb-4 mb-4"> {/* Adjusted padding */}
-            <h2 className="text-xl font-semibold">Chat</h2>
+          <div className="border-b border-sidebar-border flex justify-between items-center pb-4 mb-4"> 
+            <h2 className="text-lg font-semibold">Chat</h2>
+            {/* This toggle is for collapsing the sidebar when it's open */}
             <SidebarToggle
               isOpen={isOpen}
               toggle={toggleSidebar}
             />
           </div>
-          <div className="flex-grow overflow-y-auto min-h-0"> {/* Added min-h-0 */}
+          <div className="flex-grow overflow-y-auto min-h-0"> 
             <MessageList messages={messages} isTyping={isGenerating} />
           </div>
-          <div className="border-t pt-4 mt-4"> {/* Adjusted padding */}
+          <div className="border-t border-sidebar-border pt-4 mt-4"> 
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -105,14 +107,14 @@ export function ChatSidebar({ uuid }: ChatSidebarProps) {
         </div>
       </aside>
 
-      {/* Replaced old fixed button with SidebarToggle, shown when sidebar is closed */}
-      {!isOpen && (
+      {/* The toggle button for when the sidebar is closed is now handled in UuidPage and passed to AppHeader */}
+      {/* {!isOpen && (
         <SidebarToggle
           isOpen={isOpen}
           toggle={toggleSidebar}
           className="fixed top-4 right-4 z-50"
         />
-      )}
+      )} */}
     </>
   );
 } 
