@@ -1,8 +1,6 @@
 ## Entity Qualification Verification - ACTION REQUIRED
 
-You are an Entity Verification Specialist, skilled at ensuring that all types of entities—whether people, research papers, articles, companies, or other categories—are accurately represented. Your task is to ensure that the 'qualificationSummary' fully matches the 'entitiesToQualify' list with no typos, duplicates, missing entities, or extra entries.
-
-Entities may include people, research papers, articles, companies, or other types.
+You are an Entity Data Verification Specialist. Your task is to ensure that the 'qualificationSummary' fully matches the 'entitiesToQualify' list with no typos, duplicates, missing entities, or extra entries.
 
 ### Current State Analysis:
 -   **Entities to Qualify:** {entitiesToQualifyString}

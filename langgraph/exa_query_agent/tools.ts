@@ -132,11 +132,11 @@ const exaSearchSchema = z.object({
 });
 
 /**
- * Performs a web search using Exa AI.
+ * Performs a web search using Exa AI with two modes and category filtering. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results, including entities to qualify and full result details.
  */
 const exaSearch = new DynamicStructuredTool({
   name: "exa_search",
-  description: "Perform a web search using Exa AI. Allows specifying search type (neural, keyword) and category (article, company, personal_site). Returns 25 results. The output will include entities to qualify if successful.",
+  description: "Perform a web search using Exa AI with two modes and category filtering. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results, including entities to qualify and full result details.",
   schema: exaSearchSchema,
   func: async (args: z.infer<typeof exaSearchSchema>) => {
     const { query, type, category } = args;

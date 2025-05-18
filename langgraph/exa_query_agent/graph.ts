@@ -1,4 +1,4 @@
-import { AIMessage, BaseMessage, ToolMessage } from "@langchain/core/messages";
+import { AIMessage, BaseMessage, ToolMessage, SystemMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { StateGraph, Annotation } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
@@ -114,9 +114,14 @@ async function extractAndQueueQualificationBatchesNode(
       if (toolCall?.name === "exa_search" && toolCall.id && !processedToolCallIdsInThisTurn.has(toolCall.id)) {
         try {
           const toolContent = JSON.parse(toolMessage.content as string);
-          if (toolContent && Array.isArray(toolContent.entities_to_qualify) && toolContent.entities_to_qualify.length > 0) {
-            newBatches.push(toolContent.entities_to_qualify);
-            processedToolCallIdsInThisTurn.add(toolCall.id);
+          if (toolContent && Array.isArray(toolContent.entities_to_qualify)) {
+            const filteredEntities = toolContent.entities_to_qualify.filter(
+              (entity: any) => typeof entity === 'string' && entity.trim() !== ""
+            );
+            if (filteredEntities.length > 0) {
+              newBatches.push(filteredEntities);
+              processedToolCallIdsInThisTurn.add(toolCall.id);
+            }
           }
         } catch (e) {
           console.warn("Could not parse exa_search tool content in extractAndQueueQualificationBatchesNode:", e);
@@ -159,21 +164,27 @@ async function callModel(
 ): Promise<ParentAppStateUpdate> { 
   const configuration = ensureConfiguration(config);
   const model = (await loadChatModel(configuration.model)).bindTools(TOOLS);
-  const response = await model.invoke([
-    {
-      role: "system",
-      content: systemPrompt.replace(
-        "{system_time}",
-        new Date().toISOString(),
-      ),
-    },
-    ...(state.messages ?? []),
-    // Include qualification summary if available, so the model is aware of previous qualifications
-    ...(state.qualificationSummary && state.qualificationSummary.length > 0
-      ? [{ role: "system", content: `Qualification Summary:
-${JSON.stringify(state.qualificationSummary, null, 2)}` }]
-      : []),
-  ]);
+  const messagesForLlm: BaseMessage[] = [];
+
+  // System prompt first
+  messagesForLlm.push(new SystemMessage(
+    systemPrompt.replace(
+      "{system_time}",
+      new Date().toISOString(),
+    )
+  ));
+
+  // Then qualification summary, if any, as another system message
+  if (state.qualificationSummary && state.qualificationSummary.length > 0) {
+    messagesForLlm.push(new SystemMessage(
+      `Qualification Summary:\n${JSON.stringify(state.qualificationSummary, null, 2)}`
+    ));
+  }
+
+  // Then the rest of the chat history
+  messagesForLlm.push(...(state.messages ?? []));
+  
+  const response = await model.invoke(messagesForLlm);
   return { messages: [response] };
 }
 

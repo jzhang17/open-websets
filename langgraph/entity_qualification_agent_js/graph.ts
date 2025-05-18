@@ -1,4 +1,4 @@
-import { AIMessage, BaseMessage, SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { AIMessage, BaseMessage, SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { Annotation, StateGraph } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
@@ -72,44 +72,6 @@ const AppStateAnnotation = Annotation.Root({
   }),
 });
 
-// Helper function to extract qualificationSummary from a ToolMessage
-function getQualificationSummaryFromToolMessage(message: BaseMessage | undefined): QualificationItem[] | undefined {
-  if (message && message instanceof ToolMessage && message.name === "qualify_entities") {
-    try {
-      if (typeof message.content === 'string') {
-        const parsedContent = JSON.parse(message.content);
-        if (parsedContent && parsedContent.update && Array.isArray(parsedContent.update.qualificationSummary)) {
-          return parsedContent.update.qualificationSummary as QualificationItem[];
-        }
-      }
-    } catch (e) {
-      console.error("Error parsing qualificationSummary from qualify_entities tool message:", e);
-    }
-  }
-  return undefined;
-}
-
-// Helper function to extract text content from a message
-function getMessageTextContent(message: BaseMessage | undefined): string {
-  if (!message || !message.content) {
-    return "";
-  }
-  if (typeof message.content === 'string') {
-    return message.content;
-  }
-  if (Array.isArray(message.content)) {
-    let textContent = "";
-    for (const block of message.content) {
-      // Ensure block has 'type' and 'text' properties before accessing
-      if (block && typeof (block as any).type === 'string' && (block as any).type === "text" && typeof (block as any).text === 'string') {
-        textContent += (block as any).text + "\n"; // Concatenate if there are multiple text blocks
-      }
-    }
-    return textContent.trim();
-  }
-  return "";
-}
-
 type AppState = typeof AppStateAnnotation.State;
 type AppStateUpdate = typeof AppStateAnnotation.Update;
 
@@ -138,37 +100,28 @@ async function agentNode(
   const model = (await loadChatModel(configuration.model)).bindTools(AGENT_TOOLS);
 
   // Prepare system message
-  // The system prompt references state.entitiesToQualify.
+  // The system prompt references state.entitiesToQualify and state.qualificationSummary
   // It also has a {system_time} placeholder.
   let formattedSystemPrompt = systemPrompt.replace(
     "{system_time}",
     new Date().toISOString(),
   );
 
-  // Use current batch of entities from parent state.
+  // Optionally, provide a snapshot of key state fields for easier access by LLM, though prompt guides it to use state.
   const entitiesListString = state.entitiesToQualify?.length > 0 
-    ? `Snapshot of entitiesToQualify for this batch:
-${state.entitiesToQualify.join("\n")}` 
-    : "Snapshot: entitiesToQualify for this batch is empty.";
+    ? `Snapshot of entitiesToQualify:\n${state.entitiesToQualify.join("\n")}` 
+    : "Snapshot: entitiesToQualify is empty.";
   
-  // The qualification summary for *this specific batch* is what the agent is about to generate.
-  // The prompt should reflect that it's empty or to be created, not use parent's accumulated summary.
-  const currentBatchQualificationSummaryString = "Qualification summary for the current batch of entities is yet to be determined by you. Focus on qualifying the entities listed above.";
+  const qualificationSummaryString = state.qualificationSummary?.length > 0
+    ? `Snapshot of qualificationSummary:\n${JSON.stringify(state.qualificationSummary, null, 2)}`
+    : "Snapshot: qualificationSummary is empty.";
 
   // Append snapshots to the main system prompt that already guides the LLM.
-  const finalSystemContent = `${formattedSystemPrompt}\n\nSupplemental Context Snapshots (for your reference; primary data is in state):
-${entitiesListString}
-Status of summary for this batch: ${currentBatchQualificationSummaryString}`;
+  const finalSystemContent = `${formattedSystemPrompt}\n\nSupplemental Context Snapshots (for your reference; primary data is in state):\n${entitiesListString}\n${qualificationSummaryString}`;
   
   const messagesForLlm: BaseMessage[] = [
     new SystemMessage(finalSystemContent),
-    // Add a HumanMessage to kick off the LLM interaction for this batch,
-    // ensuring the API request is valid.
-    new HumanMessage(
-      "Please qualify the entities listed in the system message for the current batch, following all provided instructions."
-    ),
-    // DO NOT include `...state.messages` from parent state. 
-    // Subgraph starts its own message chain for this batch.
+    ...state.messages, // Include prior conversation history
   ];
 
   const response = await model.invoke(messagesForLlm);
@@ -177,10 +130,22 @@ Status of summary for this batch: ${currentBatchQualificationSummaryString}`;
   let updateFromTool: Partial<AppStateUpdate> = {};
   const lastMessage = state.messages[state.messages.length - 1];
 
-  // Use the helper function to get qualificationSummary
-  const qualificationSummaryUpdate = getQualificationSummaryFromToolMessage(lastMessage);
-  if (qualificationSummaryUpdate) {
-    updateFromTool.qualificationSummary = qualificationSummaryUpdate;
+  // Check if the latest message in the input state to this node is a ToolMessage from qualify_entities
+  // This means ToolNode ran before this current invocation of agentNode
+  if (lastMessage && lastMessage.constructor.name === "ToolMessage") {
+    const toolMessage = lastMessage as any; // Cast to any to access .name and .content
+    if (toolMessage.name === "qualify_entities") {
+      try {
+        if (typeof toolMessage.content === 'string') {
+          const parsedContent = JSON.parse(toolMessage.content);
+          if (parsedContent && parsedContent.update && Array.isArray(parsedContent.update.qualificationSummary)) {
+            updateFromTool.qualificationSummary = parsedContent.update.qualificationSummary as QualificationItem[];
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing qualificationSummary from qualify_entities tool message:", e);
+      }
+    }
   }
   // End of new logic
 
@@ -197,12 +162,20 @@ async function programmaticVerificationNode(
 
   // Check for an update from the last tool call (e.g., from verificationToolsNode)
   const lastMessage = state.messages[state.messages.length - 1];
-  
-  // Use the helper function to get qualificationSummary
-  const qualificationSummaryUpdate = getQualificationSummaryFromToolMessage(lastMessage);
-  if (qualificationSummaryUpdate) {
-    currentQualificationSummary = qualificationSummaryUpdate;
-    updateToReturn.qualificationSummary = currentQualificationSummary;
+  if (lastMessage && lastMessage.constructor.name === "ToolMessage") {
+    const toolMessage = lastMessage as any; 
+    // Safely check toolMessage and its properties
+    if (toolMessage && typeof toolMessage.name === 'string' && toolMessage.name === "qualify_entities" && typeof toolMessage.content === 'string') {
+      try {
+        const parsedContent = JSON.parse(toolMessage.content);
+        if (parsedContent && parsedContent.update && Array.isArray(parsedContent.update.qualificationSummary)) {
+          currentQualificationSummary = parsedContent.update.qualificationSummary as QualificationItem[];
+          updateToReturn.qualificationSummary = currentQualificationSummary;
+        }
+      } catch (e) {
+        console.error("Error parsing qualificationSummary from tool message in programmaticVerificationNode:", e);
+      }
+    }
   }
 
   const { entitiesToQualify } = state; 
@@ -261,8 +234,7 @@ async function verificationAgentNode(
     continueQualificationSignal: false // Default to false
   };
 
-  const responseTextContent = getMessageTextContent(response);
-  if (responseTextContent.includes("<continue_qualification/>")) {
+  if (response.content && typeof response.content === 'string' && response.content.includes("<continue_qualification/>")) {
     update.verificationLoopCount = 0; 
     update.continueQualificationSignal = true; 
   }
@@ -281,9 +253,31 @@ function shouldContinueMainWorkflowNode(state: AppState): string {
     if (toolCalls && toolCalls.length > 0) {
       return "agentToolsNode";
     }
+
+    // Check for qualification_complete signal in content
+    // AIMessage.content can be string or BaseMessageContent[]
+    const content = (lastMessage as AIMessage)?.content;
+    let textForSignalCheck = "";
+
+    if (typeof content === 'string') {
+      textForSignalCheck = content;
+    } else if (Array.isArray(content)) {
+      // Iterate through content blocks to find and concatenate text parts.
+      for (const block of content) {
+        // Ensure block has 'type' and 'text' properties before accessing
+        if (block && typeof block.type === 'string' && block.type === "text" && typeof block.text === 'string') {
+          textForSignalCheck += block.text + "\n"; // Concatenate if there are multiple text blocks
+        }
+      }
+      textForSignalCheck = textForSignalCheck.trim();
+    }
+
+    if (textForSignalCheck.includes("<qualification_complete/>")) {
+      return "programmaticVerificationNode";
+    }
   }
-  // If no tool calls, route to programmaticVerificationNode
-  return "programmaticVerificationNode";
+  // If no tool calls and no qualification_complete signal, loop back to agentNode
+  return "agentNode";
 }
 
 function routeAfterProgrammaticVerificationNode(state: AppState): string {
@@ -310,7 +304,22 @@ function routeAfterVerificationAgentNode(state: AppState): string {
   if (lastMessage && lastMessage.constructor.name === "AIMessage") {
     const aiMessage = lastMessage as AIMessage;
     // Check for qualification_complete signal in content
-    const textForSignalCheck = getMessageTextContent(aiMessage);
+    // AIMessage.content can be string or BaseMessageContent[]
+    const content = aiMessage.content;
+    let textForSignalCheck = "";
+
+    if (typeof content === 'string') {
+      textForSignalCheck = content;
+    } else if (Array.isArray(content)) {
+      // Iterate through content blocks to find and concatenate text parts.
+      for (const block of content) {
+        // Ensure block has 'type' and 'text' properties before accessing
+        if (block && typeof block.type === 'string' && block.type === "text" && typeof block.text === 'string') {
+          textForSignalCheck += block.text + "\n"; // Concatenate if there are multiple text blocks
+        }
+      }
+      textForSignalCheck = textForSignalCheck.trim();
+    }
     
     if (textForSignalCheck.includes("<continue_qualification/>")) {
       return "agentNode"; 
@@ -341,6 +350,7 @@ workflow.addConditionalEdges(
   {
     "agentToolsNode": "agentToolsNode",
     "programmaticVerificationNode": "programmaticVerificationNode",
+    "agentNode": "agentNode",
   }
 );
 workflow.addEdge("agentToolsNode", "agentNode");
