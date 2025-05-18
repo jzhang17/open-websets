@@ -1,13 +1,14 @@
 interface UuidPageProps {
-  params: {
-    uuid: string;
-  };
+  params: { uuid: string };
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
 export default async function UuidPage({ params, searchParams }: UuidPageProps) {
-  const { uuid } = params;
-  const query = searchParams?.query;
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+
+  const { uuid } = resolvedParams;
+  const query = resolvedSearchParams?.query;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2 bg-gray-50">
@@ -42,4 +43,4 @@ export default async function UuidPage({ params, searchParams }: UuidPageProps) 
       </main>
     </div>
   );
-} 
+}
