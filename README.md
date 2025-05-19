@@ -20,6 +20,13 @@ For the LangGraph agents:
 
 ```bash
 cd langgraph && npm install
+yarn install
+```
+
+Install the LangGraph CLI using npx from the LangGraph folder:
+
+```bash
+cd langgraph && npx @langchain/langgraph-cli
 ```
 
 ## Running
@@ -31,9 +38,9 @@ cd frontend
 npm run dev
 ```
 
-The LangGraph agents can be built via:
+Preview the LangGraph agents with:
 
 ```bash
 cd langgraph
-npm run build
+npx @langchain/langgraph-cli@latest dev
 ```
