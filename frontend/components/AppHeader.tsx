@@ -9,7 +9,7 @@ interface AppHeaderProps {
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ sidebarToggle }) => {
   return (
-    <header className="flex items-center justify-between p-4 w-full h-full bg-background">
+    <header className="flex items-center justify-between p-4 w-full h-full bg-background relative z-10">
       <Link
         href="/"
         className="text-lg font-bold hover:text-primary transition-colors tracking-tight font-geist"
