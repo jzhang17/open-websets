@@ -26,7 +26,7 @@ export enum EntityType {
 
 // Define the new state structure including entities
 const AppStateAnnotation = Annotation.Root({
-  messages: Annotation<BaseMessage[]>({
+  listGenMessages: Annotation<BaseMessage[]>({
     reducer: (currentState, updateValue) => currentState.concat(updateValue),
     default: () => [],
   }),
@@ -53,6 +53,52 @@ const __dirname = path.dirname(__filename);
 const systemPromptPath = path.join(__dirname, "system_prompt.md");
 const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
 
+// Wrapper for this subgraph's ToolNode
+async function listGenToolsNode(state: AppState, config?: RunnableConfig): Promise<Partial<AppStateUpdate>> {
+  const lastMessage = state.listGenMessages[state.listGenMessages.length - 1];
+  let messageForToolNode: AIMessage;
+
+  if (!lastMessage) {
+    throw new Error("listGenToolsNode: No last message found.");
+  }
+
+  if (lastMessage instanceof AIMessage) {
+    if (!lastMessage.tool_calls || lastMessage.tool_calls.length === 0) {
+      throw new Error("listGenToolsNode: AIMessage received, but no tool_calls found.");
+    }
+    messageForToolNode = lastMessage;
+  } else if (typeof lastMessage === 'object' && lastMessage !== null && 'tool_calls' in lastMessage && Array.isArray((lastMessage as any).tool_calls) && (lastMessage as any).tool_calls.length > 0) {
+    // AIMessageChunk-like object
+    const chunk = lastMessage as any;
+    let extractedTextContent = "";
+    if (typeof chunk.content === 'string') {
+      extractedTextContent = chunk.content;
+    } else if (Array.isArray(chunk.content)) {
+      for (const part of chunk.content) {
+        if (typeof part === 'object' && part !== null && part.type === 'text' && typeof (part as any).text === 'string') {
+          extractedTextContent += (part as any).text + "\n";
+        }
+      }
+      extractedTextContent = extractedTextContent.trim();
+    }
+    messageForToolNode = new AIMessage({
+      content: extractedTextContent || "",
+      tool_calls: chunk.tool_calls,
+      ...(chunk.invalid_tool_calls && { invalid_tool_calls: chunk.invalid_tool_calls }),
+      ...(chunk.id && { id: chunk.id }),
+      ...(chunk.additional_kwargs && { additional_kwargs: chunk.additional_kwargs }),
+      ...(chunk.response_metadata && { response_metadata: chunk.response_metadata }),
+      ...(chunk.usage_metadata && { usage_metadata: chunk.usage_metadata }),
+    });
+  } else {
+    throw new Error("listGenToolsNode: Last message is not an AIMessage or a compatible AIMessageChunk with tool_calls.");
+  }
+
+  const toolExecutor = new ToolNode(TOOLS);
+  const toolExecutorOutput = await toolExecutor.invoke({ messages: [messageForToolNode] }, config);
+  return { listGenMessages: toolExecutorOutput.messages };
+}
+
 // Define the function that calls the model
 async function callModel(
   state: AppState,
@@ -64,8 +110,8 @@ async function callModel(
   const model = (await loadChatModel(configuration.model)).bindTools(TOOLS);
 
   let parsedEntitiesFromTool: Entity[] | undefined = undefined;
-  if (state.messages.length > 0) {
-    const lastMessageFromState = state.messages[state.messages.length - 1];
+  if (state.listGenMessages.length > 0) {
+    const lastMessageFromState = state.listGenMessages[state.listGenMessages.length - 1];
 
     // Check if it's a ToolMessage from extract_entities
     if (lastMessageFromState && lastMessageFromState.constructor.name === "ToolMessage") {
@@ -109,10 +155,10 @@ async function callModel(
         new Date().toISOString(),
       ),
     },
-    ...state.messages,
+    ...state.listGenMessages,
   ]);
 
-  const update: AppStateUpdate = { messages: [response] };
+  const update: AppStateUpdate = { listGenMessages: [response] };
   if (parsedEntitiesFromTool && parsedEntitiesFromTool.length > 0) {
     // The reducer for 'entities' expects the new array of items to add/concat.
     update.entities = parsedEntitiesFromTool;
@@ -122,7 +168,7 @@ async function callModel(
 
 // Define the function that determines whether to continue or not
 function routeModelOutput(state: AppState): string {
-  const messages = state.messages;
+  const messages = state.listGenMessages;
   const lastMessage = messages[messages.length - 1];
   // If the LLM is invoking tools, route there.
   if (((lastMessage as AIMessage)?.tool_calls?.length || 0) > 0) {
@@ -139,7 +185,7 @@ function routeModelOutput(state: AppState): string {
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
   // Define the two nodes we will cycle between
   .addNode("callModel", callModel)
-  .addNode("tools", new ToolNode(TOOLS))
+  .addNode("tools", listGenToolsNode)
   // Set the entrypoint as `callModel`
   // This means that this node is the first one called
   .addEdge("__start__", "callModel")

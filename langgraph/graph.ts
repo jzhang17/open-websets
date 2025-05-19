@@ -11,7 +11,8 @@ import { loadChatModel } from "./utils.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { AIMessage, ToolMessage } from "@langchain/core/messages";
+import { AIMessage, ToolMessage, HumanMessage } from "@langchain/core/messages";
+import { RunnableConfig } from "@langchain/core/runnables";
 
 // Define the structure for an entity by extending the imported one
 interface Entity extends ListGenEntityInterface {}
@@ -21,7 +22,7 @@ type QualificationItem = EQQualificationItem;
 
 // Define the parent graph's state structure
 const ParentAppStateAnnotation = Annotation.Root({
-  messages: Annotation<BaseMessage[]>({
+  parentMessages: Annotation<BaseMessage[]>({
     reducer: (currentState, updateValue) => currentState.concat(updateValue),
     default: () => [],
   }),
@@ -56,10 +57,96 @@ const ParentAppStateAnnotation = Annotation.Root({
     reducer: (_currentState, updateValue) => updateValue,
     default: () => 0,
   }),
+  // Add annotations for subgraph messages
+  listGenMessages: Annotation<BaseMessage[]>({
+    reducer: (_currentState, updateValue) => updateValue,
+    default: () => [],
+  }),
+  qualMessages: Annotation<BaseMessage[]>({
+    reducer: (_currentState, updateValue) => updateValue,
+    default: () => [],
+  }),
 });
 
+// Define types for state and update based on the annotation
+type ParentAppState = typeof ParentAppStateAnnotation.State;
+type ParentAppStateUpdate = typeof ParentAppStateAnnotation.Update;
+
+// Wrapper for the parent graph's ToolNode
+async function parentAgentToolsNode(state: ParentAppState, config?: RunnableConfig): Promise<Partial<ParentAppStateUpdate>> {
+  const lastMessage = state.parentMessages[state.parentMessages.length - 1];
+  let messageForToolNode: AIMessage;
+
+  if (!lastMessage) {
+    console.error("parentAgentToolsNode: No last message found in parentMessages.");
+    throw new Error("parentAgentToolsNode: No last message found.");
+  }
+
+  if (lastMessage instanceof AIMessage) {
+    if (!lastMessage.tool_calls || lastMessage.tool_calls.length === 0) {
+      console.error("parentAgentToolsNode: AIMessage received, but no tool_calls found.", lastMessage);
+      throw new Error("parentAgentToolsNode: AIMessage received, but no tool_calls found.");
+    }
+    messageForToolNode = lastMessage;
+  } else if (typeof lastMessage === 'object' && lastMessage !== null && 'tool_calls' in lastMessage && Array.isArray((lastMessage as any).tool_calls) && (lastMessage as any).tool_calls.length > 0) {
+    // This is likely an AIMessageChunk or a similar structure with tool_calls.
+    console.log("parentAgentToolsNode: Detected AIMessageChunk-like object with tool_calls. Converting to AIMessage for ToolNode.");
+    let extractedTextContent = "";
+    if (typeof lastMessage.content === 'string') {
+      extractedTextContent = lastMessage.content;
+    } else if (Array.isArray(lastMessage.content)) {
+      for (const part of lastMessage.content) {
+        if (typeof part === 'object' && part !== null && part.type === 'text' && typeof (part as any).text === 'string') {
+          extractedTextContent += (part as any).text + "\n";
+        }
+      }
+      extractedTextContent = extractedTextContent.trim();
+    }
+    const chunk = lastMessage as any;
+    messageForToolNode = new AIMessage({
+      content: extractedTextContent || "",
+      tool_calls: chunk.tool_calls,
+      ...(chunk.invalid_tool_calls && { invalid_tool_calls: chunk.invalid_tool_calls }),
+      ...(chunk.id && { id: chunk.id }),
+      ...(chunk.additional_kwargs && { additional_kwargs: chunk.additional_kwargs }),
+      ...(chunk.response_metadata && { response_metadata: chunk.response_metadata }),
+      ...(chunk.usage_metadata && { usage_metadata: chunk.usage_metadata }),
+    });
+  } else {
+    console.error("parentAgentToolsNode: Last message is not an AIMessage or a compatible AIMessageChunk with tool_calls.", lastMessage);
+    throw new Error("parentAgentToolsNode: Last message is not an AIMessage or a compatible AIMessageChunk with tool_calls.");
+  }
+
+  const toolExecutor = new ToolNode(TOOLS);
+  const toolExecutorOutput = await toolExecutor.invoke({ messages: [messageForToolNode] }, config);
+
+  const toolMessages = toolExecutorOutput.messages as ToolMessage[];
+  let newQualificationCriteria: string | undefined = undefined;
+
+  for (const toolMessage of toolMessages) {
+    if (toolMessage.name === "update_qualification_criteria") {
+      if (typeof toolMessage.content === 'string') {
+        try {
+          const toolOutput = JSON.parse(toolMessage.content);
+          if (toolOutput.qualificationCriteria && typeof toolOutput.qualificationCriteria === 'string') {
+            newQualificationCriteria = toolOutput.qualificationCriteria;
+          }
+        } catch (e) {
+          console.error("Failed to parse qualificationCriteria from update_qualification_criteria tool message in parentAgentToolsNode:", toolMessage.content, e);
+        }
+      }
+    }
+  }
+
+  const update: Partial<ParentAppStateUpdate> = { parentMessages: toolMessages };
+  if (newQualificationCriteria !== undefined) {
+    update.qualificationCriteria = newQualificationCriteria;
+  }
+  return update;
+}
+
 // Define the function that calls the agent model
-async function callAgentModel(state: any, config: any) {
+async function callAgentModel(state: ParentAppState, config: RunnableConfig): Promise<ParentAppStateUpdate> {
   const configuration = ensureConfiguration(config);
   const model = (await loadChatModel(configuration.model)).bindTools(TOOLS);
   const __filename = fileURLToPath(import.meta.url);
@@ -67,50 +154,38 @@ async function callAgentModel(state: any, config: any) {
   const systemPromptPath = path.join(__dirname, "system_prompt.md");
   const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
 
-  let parsedQualificationCriteria: string | undefined = undefined;
-  if (state.messages.length > 0) {
-    const lastMessageFromState = state.messages[state.messages.length - 1];
-    if (lastMessageFromState && lastMessageFromState.constructor.name === "ToolMessage") {
-      const toolMessage = lastMessageFromState as ToolMessage;
-      if (toolMessage.name === "update_qualification_criteria") {
-        if (typeof toolMessage.content === 'string') {
-          try {
-            const toolOutput = JSON.parse(toolMessage.content);
-            if (toolOutput.qualificationCriteria && typeof toolOutput.qualificationCriteria === 'string') {
-              parsedQualificationCriteria = toolOutput.qualificationCriteria;
-            }
-          } catch (e) {
-            console.error(
-              "Failed to parse qualificationCriteria from update_qualification_criteria tool message content:",
-              toolMessage.content,
-              e,
-            );
-          }
-        } else {
-          console.warn(
-            "update_qualification_criteria tool message content was not a string:",
-            toolMessage.content,
-          );
-        }
-      }
-    }
-  }
-
   const response = await model.invoke([
     { role: "system", content: systemPrompt.replace("{system_time}", new Date().toISOString()) },
-    ...state.messages,
+    ...state.parentMessages,
   ]);
 
-  const update: any = { messages: [response] };
-  if (parsedQualificationCriteria !== undefined) {
-    update.qualificationCriteria = parsedQualificationCriteria;
+  const update: Partial<ParentAppStateUpdate> = { parentMessages: [response] };
+
+  // Check if this response will lead to a subgraph directly (e.g., listGeneration)
+  const hasToolCalls = ((response as AIMessage)?.tool_calls?.length || 0) ||
+                       ((response as any)?.tool_call_chunks?.length || 0);
+
+  if (!hasToolCalls) {
+    let initialContentForListGen = "";
+    if (typeof response.content === 'string') {
+      initialContentForListGen = response.content;
+    } else if (Array.isArray(response.content)) {
+      for (const part of response.content) {
+        if (typeof part === 'object' && part !== null && part.type === 'text' && typeof (part as any).text === 'string') {
+          initialContentForListGen += (part as any).text + "\n";
+        }
+      }
+      initialContentForListGen = initialContentForListGen.trim();
+    }
+    const humanMessageContent = initialContentForListGen || "Please proceed based on the previous instruction from the parent agent.";
+    update.listGenMessages = [new HumanMessage({ content: humanMessageContent })];
   }
-  return update;
+  return update as ParentAppStateUpdate;
 }
 
 // Define routing logic for the agent node
 function routeAgentModelOutput(state: any) {
-  const messages = state.messages;
+  const messages = state.parentMessages;
   const lastMessage = messages[messages.length - 1];
   if (((lastMessage as AIMessage)?.tool_calls?.length || 0) > 0) {
     return "agentTools";
@@ -119,43 +194,54 @@ function routeAgentModelOutput(state: any) {
 }
 
 // New node function for entity processing
-async function entityProcessingNode(state: any) {
-  const { entities, processedEntityCount = 0 } = state;
+async function entityProcessingNode(state: ParentAppState, _config?: RunnableConfig): Promise<Partial<ParentAppStateUpdate>> {
+  const { entities, processedEntityCount = 0, qualificationCriteria } = state;
   const batchSize = 25;
 
-  let newMessages: BaseMessage[] = [];
+  let newParentMessages: BaseMessage[] = []; // Messages for parentMessages history
 
   if (!entities || entities.length === 0) {
-    newMessages.push(new AIMessage("No entities were generated to qualify. Skipping qualification."));
+    newParentMessages.push(new AIMessage("No entities were generated to qualify. Skipping qualification."));
     return {
-        entitiesToQualify: [], // No batch to qualify
+        entitiesToQualify: [],
         processedEntityCount: 0,
-        messages: newMessages,
+        parentMessages: newParentMessages,
+        qualMessages: [], // Clear/initialize qualMessages
     };
   }
 
   if (processedEntityCount >= entities.length) {
-    newMessages.push(new AIMessage("All entities have been processed for qualification."));
+    newParentMessages.push(new AIMessage("All entities have been processed for qualification."));
     return {
-        entitiesToQualify: [], // No more entities in this batch to qualify
-        messages: newMessages,
-        // processedEntityCount remains at entities.length, or could be reset if graph ends immediately
+        entitiesToQualify: [],
+        parentMessages: newParentMessages,
+        qualMessages: [], // Clear/initialize qualMessages
+        // processedEntityCount remains at entities.length
     };
   }
 
   const nextBatchEndIndex = Math.min(processedEntityCount + batchSize, entities.length);
-  const batchToQualifyObjects = entities.slice(processedEntityCount, nextBatchEndIndex); // This is Entity[]
-  const batchEntityNamesToQualify = batchToQualifyObjects.map((entity: Entity) => entity.name); // Extract names
+  const batchToQualifyObjects = entities.slice(processedEntityCount, nextBatchEndIndex);
+  const batchEntityNamesToQualify = batchToQualifyObjects.map((entity: Entity) => entity.name);
 
-  newMessages.push(new AIMessage(
+  newParentMessages.push(new AIMessage(
     `Preparing batch of ${batchEntityNamesToQualify.length} entity names for qualification (processing ${processedEntityCount + 1}-${nextBatchEndIndex} of ${entities.length} total).`
   ));
 
-  return {
-    entitiesToQualify: batchEntityNamesToQualify, // Pass only names
-    processedEntityCount: nextBatchEndIndex, // Update to the count of entities processed so far
-    messages: newMessages,
+  const update: Partial<ParentAppStateUpdate> = {
+    entitiesToQualify: batchEntityNamesToQualify,
+    processedEntityCount: nextBatchEndIndex,
+    parentMessages: newParentMessages,
   };
+
+  if (batchEntityNamesToQualify.length > 0) {
+    const qualInstruction = `Please qualify the following entities: ${batchEntityNamesToQualify.join(", ")}. The qualification criteria are: ${qualificationCriteria}`;
+    update.qualMessages = [new HumanMessage({ content: qualInstruction })];
+  } else {
+    update.qualMessages = []; // Should not happen if entities exist, but good for consistency
+  }
+
+  return update;
 }
 
 // New conditional routing function after entityProcessingNode
@@ -173,7 +259,7 @@ const parentWorkflow = new StateGraph(ParentAppStateAnnotation, ConfigurationSch
 
 // Add the root agent nodes
 parentWorkflow.addNode("agent", callAgentModel);
-parentWorkflow.addNode("agentTools", new ToolNode(TOOLS));
+parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 
 // Add subgraph nodes
 parentWorkflow.addNode("listGeneration", listGenerationGraph);

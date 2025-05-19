@@ -1,4 +1,4 @@
-import { AIMessage, BaseMessage, SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage, BaseMessage, SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { Annotation, StateGraph } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
@@ -32,7 +32,7 @@ export enum EntityType {
 
 // Define the new state structure including entities
 const AppStateAnnotation = Annotation.Root({
-  messages: Annotation<BaseMessage[]>({
+  qualMessages: Annotation<BaseMessage[]>({
     reducer: (currentMessages, newMessages) => currentMessages.concat(newMessages),
     default: () => [],
   }),
@@ -108,6 +108,62 @@ const verificationPromptTemplate = fs.readFileSync(
 
 const MAX_VERIFICATION_LOOPS = 5;
 
+// Helper to create an AIMessage from a chunk or ensure it's a valid AIMessage for ToolNode
+function prepareMessageForToolNode(lastMessage: BaseMessage | undefined, nodeName: string): AIMessage {
+  if (!lastMessage) {
+    throw new Error(`${nodeName}: No last message found.`);
+  }
+
+  if (lastMessage instanceof AIMessage) {
+    if (!lastMessage.tool_calls || lastMessage.tool_calls.length === 0) {
+      throw new Error(`${nodeName}: AIMessage received, but no tool_calls found.`);
+    }
+    return lastMessage;
+  } else if (typeof lastMessage === 'object' && lastMessage !== null && 'tool_calls' in lastMessage && Array.isArray((lastMessage as any).tool_calls) && (lastMessage as any).tool_calls.length > 0) {
+    const chunk = lastMessage as any;
+    let extractedTextContent = "";
+    if (typeof chunk.content === 'string') {
+      extractedTextContent = chunk.content;
+    } else if (Array.isArray(chunk.content)) {
+      for (const part of chunk.content) {
+        if (typeof part === 'object' && part !== null && part.type === 'text' && typeof (part as any).text === 'string') {
+          extractedTextContent += (part as any).text + "\n";
+        }
+      }
+      extractedTextContent = extractedTextContent.trim();
+    }
+    return new AIMessage({
+      content: extractedTextContent || "",
+      tool_calls: chunk.tool_calls,
+      ...(chunk.invalid_tool_calls && { invalid_tool_calls: chunk.invalid_tool_calls }),
+      ...(chunk.id && { id: chunk.id }),
+      ...(chunk.additional_kwargs && { additional_kwargs: chunk.additional_kwargs }),
+      ...(chunk.response_metadata && { response_metadata: chunk.response_metadata }),
+      ...(chunk.usage_metadata && { usage_metadata: chunk.usage_metadata }),
+    });
+  } else {
+    throw new Error(`${nodeName}: Last message is not an AIMessage or a compatible AIMessageChunk with tool_calls.`);
+  }
+}
+
+// Wrapper for agentToolsNode
+async function wrappedAgentToolsNode(state: AppState, config?: RunnableConfig): Promise<Partial<AppStateUpdate>> {
+  const lastMessage = state.qualMessages[state.qualMessages.length - 1];
+  const messageForToolNode = prepareMessageForToolNode(lastMessage, "wrappedAgentToolsNode");
+  const toolExecutor = new ToolNode(AGENT_TOOLS);
+  const toolExecutorOutput = await toolExecutor.invoke({ messages: [messageForToolNode] }, config);
+  return { qualMessages: toolExecutorOutput.messages };
+}
+
+// Wrapper for verificationToolsNode
+async function wrappedVerificationToolsNode(state: AppState, config?: RunnableConfig): Promise<Partial<AppStateUpdate>> {
+  const lastMessage = state.qualMessages[state.qualMessages.length - 1];
+  const messageForToolNode = prepareMessageForToolNode(lastMessage, "wrappedVerificationToolsNode");
+  const toolExecutor = new ToolNode(VERIFICATION_LLM_TOOLS);
+  const toolExecutorOutput = await toolExecutor.invoke({ messages: [messageForToolNode] }, config);
+  return { qualMessages: toolExecutorOutput.messages };
+}
+
 // Renamed and refactored from original callModel
 async function agentNode(
   state: AppState,
@@ -136,8 +192,8 @@ async function agentNode(
   // Append snapshots to the main system prompt that already guides the LLM.
   const finalSystemContent = `${formattedSystemPrompt}\n\nSupplemental Context Snapshots (for your reference; primary data is in state):\n${entitiesListString}\n${qualificationSummaryString}`;
   
-  // Filter out any prior messages that have empty content to prevent empty 'parts' in API requests
-  const filteredHistory: BaseMessage[] = state.messages.filter((m) => {
+   // Filter out any prior messages that have empty content to prevent empty 'parts' in API requests
+  const filteredHistory: BaseMessage[] = state.qualMessages.filter((m) => {
     const content = m.content;
     if (typeof content === 'string') {
       return content.trim() !== '';
@@ -158,7 +214,7 @@ async function agentNode(
   
   // Start of new logic to handle potential state updates from tools
   let updateFromTool: Partial<AppStateUpdate> = {};
-  const lastMessage = state.messages[state.messages.length - 1];
+  const lastMessage = state.qualMessages[state.qualMessages.length - 1];
 
   // Check if the latest message in the input state to this node is a ToolMessage from qualify_entities
   // This means ToolNode ran before this current invocation of agentNode
@@ -180,7 +236,7 @@ async function agentNode(
   // End of new logic
 
   // Merge LLM response with updates from tool
-  return { messages: [response], ...updateFromTool };
+  return { qualMessages: [response], ...updateFromTool };
 }
 
 async function programmaticVerificationNode(
@@ -191,7 +247,7 @@ async function programmaticVerificationNode(
   let updateToReturn: Partial<AppState> = {};
 
   // Check for an update from the last tool call (e.g., from verificationToolsNode)
-  const lastMessage = state.messages[state.messages.length - 1];
+  const lastMessage = state.qualMessages[state.qualMessages.length - 1];
   if (lastMessage && lastMessage.constructor.name === "ToolMessage") {
     const toolMessage = lastMessage as any; 
     // Safely check toolMessage and its properties
@@ -259,7 +315,7 @@ async function verificationAgentNode(
   const newVerificationLoopCount = (state.verificationLoopCount || 0) + 1;
   
   let update: AppStateUpdate = { 
-    messages: [response], 
+    qualMessages: [response], 
     verificationLoopCount: newVerificationLoopCount,
     continueQualificationSignal: false // Default to false
   };
@@ -274,7 +330,7 @@ async function verificationAgentNode(
 
 // Routing functions
 function shouldContinueMainWorkflowNode(state: AppState): string {
-  const lastMessage = state.messages[state.messages.length - 1];
+  const lastMessage = state.qualMessages[state.qualMessages.length - 1];
 
   if (lastMessage) { // Ensure there is a last message
     // More robust check for tool calls, similar to entity_extraction_agent_js
@@ -322,7 +378,7 @@ function routeAfterProgrammaticVerificationNode(state: AppState): string {
 }
 
 function routeAfterVerificationAgentNode(state: AppState): string {
-  const lastMessage = state.messages[state.messages.length - 1];
+  const lastMessage = state.qualMessages[state.qualMessages.length - 1];
 
   // Check for tool calls first, regardless of exact message type, as long as it has tool_calls
   const toolCalls = (lastMessage as AIMessage)?.tool_calls;
@@ -365,7 +421,7 @@ function routeAfterVerificationAgentNode(state: AppState): string {
 
 // Add this new routing function
 function routeAfterAgentToolsNode(state: AppState): string {
-  const lastMessage = state.messages[state.messages.length - 1];
+  const lastMessage = state.qualMessages[state.qualMessages.length - 1];
 
   // After ToolNode runs, it appends ToolMessage(s) to the state.
   // We check if the last message is a ToolMessage from 'qualify_entities'.
@@ -382,10 +438,10 @@ function routeAfterAgentToolsNode(state: AppState): string {
 // Graph definition
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
   .addNode("agentNode", agentNode)
-  .addNode("agentToolsNode", new ToolNode(AGENT_TOOLS))
+  .addNode("agentToolsNode", wrappedAgentToolsNode)
   .addNode("programmaticVerificationNode", programmaticVerificationNode)
   .addNode("verificationAgentNode", verificationAgentNode)
-  .addNode("verificationToolsNode", new ToolNode(VERIFICATION_LLM_TOOLS));
+  .addNode("verificationToolsNode", wrappedVerificationToolsNode);
 
 // Define edges on the fully typed workflow object
 workflow.addEdge("__start__", "agentNode");
