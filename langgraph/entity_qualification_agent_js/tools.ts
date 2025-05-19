@@ -146,6 +146,7 @@ const qualifyAllEntitiesSchema = z.object({
     .array(
       z
         .object({
+          index: z.number(),
           entity_name: z.string(),
           qualified: z.boolean(),
           reasoning: z.string(),
@@ -179,14 +180,21 @@ export const qualifyAllEntitiesTool = new DynamicStructuredTool({
 // Schema for verifyQualificationConsistencyTool
 const verifyInputsSchema = z.object({
   entitiesToQualify: z
-    .array(z.string())
+    .array(
+      z.object({
+        index: z.number(),
+        name: z.string(),
+        url: z.string(),
+      })
+    )
     .describe(
-      "The list of entity names that should be qualified (from state).",
+      "The list of entities that should be qualified (from state).",
     ),
   qualificationSummary: z
     .array(
       z
         .object({
+          index: z.number(),
           entity_name: z.string(),
           qualified: z.boolean(),
           reasoning: z.string(),
@@ -210,6 +218,7 @@ export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
     const summaryEntityNames = qualificationSummary.map(
       (item: QualificationItem) => item.entity_name,
     );
+    const qualifyNames = entitiesToQualify.map((e) => e.name);
 
     const issues: Record<string, any> = {
       duplicates_found_now: [],
@@ -232,10 +241,10 @@ export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
       .map(([name]) => name);
 
     const summarySet = new Set(summaryEntityNames);
-    const entitiesToQualifySet = new Set(entitiesToQualify);
+    const entitiesToQualifySet = new Set(qualifyNames);
 
     // Calculate initial missing and extra entities
-    const initialMissingEntities = entitiesToQualify.filter(
+    const initialMissingEntities = qualifyNames.filter(
       (name: string) => !summarySet.has(name),
     );
     issues.missing_entities_now = [...initialMissingEntities]; // Store the full list
@@ -287,6 +296,7 @@ const overwriteSummarySchema = z.object({
     .array(
       z
         .object({
+          index: z.number(),
           entity_name: z.string(),
           qualified: z.boolean(),
           reasoning: z.string(),

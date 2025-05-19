@@ -12,6 +12,7 @@ import { fileURLToPath } from "url";
 
 // Define the structure for an entity
 export interface Entity {
+  index: number;
   name: string;
   url: string;
 }
@@ -188,8 +189,15 @@ async function callModel(
 
   const update: AppStateUpdate = { listGenMessages: [response] };
   if (parsedEntitiesFromTool && parsedEntitiesFromTool.length > 0) {
+    // Assign sequential indexes to each new entity before updating state
+    const baseIndex = state.entities.length;
+    const indexedEntities = parsedEntitiesFromTool.map((e, i) => ({
+      index: baseIndex + i,
+      name: e.name,
+      url: e.url,
+    }));
     // The reducer for 'entities' expects the new array of items to add/concat.
-    update.entities = parsedEntitiesFromTool;
+    update.entities = indexedEntities;
   }
   return update;
 }
