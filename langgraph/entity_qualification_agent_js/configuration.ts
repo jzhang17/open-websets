@@ -24,8 +24,9 @@ export function ensureConfiguration(
    */
   const configurable = config.configurable ?? {};
   return {
-    systemPromptTemplate:
-      configurable.systemPromptTemplate ?? "",
-    model: configurable.model ?? "google-genai/models/gemini-2.5-flash-preview-04-17",
+    systemPromptTemplate: configurable.systemPromptTemplate ?? "",
+    model:
+      configurable.model ??
+      "google-genai/models/gemini-2.5-flash-preview-04-17",
   };
 }

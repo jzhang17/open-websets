@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import { Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 // Define the common props and specific props for input and textarea
 interface BaseInputProps {
@@ -13,13 +13,16 @@ interface BaseInputProps {
 }
 
 // Combine base props with HTML input attributes, omitting onChange
-type InputElementProps = BaseInputProps & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'>;
+type InputElementProps = BaseInputProps &
+  Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange">;
 
 // Define the overall component props - a union of both types plus custom onChange handling
-interface InputProps extends Omit<InputElementProps, 'className'> {
+interface InputProps extends Omit<InputElementProps, "className"> {
   className?: string;
   onChange?: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>;
-  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+  onKeyDown?: React.KeyboardEventHandler<
+    HTMLInputElement | HTMLTextAreaElement
+  >;
 }
 
 interface CachedQuery {
@@ -67,7 +70,7 @@ function Input({
   React.useEffect(() => {
     if (multiline && textareaRef.current) {
       // Reset height to auto to get the correct scrollHeight
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = "auto";
       // Set to scrollHeight to expand the textarea
       const scrollHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = `${Math.max(scrollHeight, 48)}px`;
@@ -75,7 +78,7 @@ function Input({
   }, [inputValue, multiline]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const newValue = e.target.value;
     setInputValue(newValue);
@@ -89,8 +92,10 @@ function Input({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    if (multiline && e.key === 'Enter' && !e.shiftKey && !isLoading) {
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+  ) => {
+    if (multiline && e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault();
       buttonRef.current?.click();
     }
@@ -103,7 +108,7 @@ function Input({
     "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-w-0 rounded-md border bg-transparent px-3 py-1 pr-10 text-md shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-base",
     "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
     "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-    className
+    className,
   );
 
   return (
@@ -116,11 +121,11 @@ function Input({
           onKeyDown={handleKeyDown}
           className={cn(
             sharedClassName,
-            "w-full resize-none overflow-hidden whitespace-pre-wrap break-words py-[11px]"
+            "w-full resize-none overflow-hidden whitespace-pre-wrap break-words py-[11px]",
           )}
           rows={1}
-          style={{ 
-            minHeight: "48px"
+          style={{
+            minHeight: "48px",
           }}
           disabled={isLoading || props.disabled}
           {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
@@ -131,10 +136,7 @@ function Input({
           value={inputValue}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          className={cn(
-            sharedClassName,
-            "flex h-9 w-full"
-          )}
+          className={cn(sharedClassName, "flex h-9 w-full")}
           disabled={isLoading || props.disabled}
           {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
         />
@@ -146,14 +148,10 @@ function Input({
         aria-label="Submit"
         disabled={isLoading || props.disabled}
       >
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          '→'
-        )}
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "→"}
       </button>
     </div>
-  )
+  );
 }
 
-export { Input }
+export { Input };

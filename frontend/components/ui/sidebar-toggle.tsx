@@ -1,5 +1,5 @@
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SidebarToggleProps {
   isOpen: boolean;
@@ -7,7 +7,11 @@ interface SidebarToggleProps {
   className?: string;
 }
 
-export const SidebarToggle: React.FC<SidebarToggleProps> = ({ isOpen, toggle, className }) => {
+export const SidebarToggle: React.FC<SidebarToggleProps> = ({
+  isOpen,
+  toggle,
+  className,
+}) => {
   return (
     <Button
       variant="secondary"
@@ -23,4 +27,4 @@ export const SidebarToggle: React.FC<SidebarToggleProps> = ({ isOpen, toggle, cl
       <span className="sr-only">Toggle sidebar</span>
     </Button>
   );
-}; 
+};

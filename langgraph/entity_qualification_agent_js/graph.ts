@@ -1,13 +1,19 @@
-import { AIMessage, BaseMessage, SystemMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  BaseMessage,
+  SystemMessage,
+  HumanMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { Annotation, StateGraph } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
-import { 
-  AGENT_TOOLS, 
-  VERIFICATION_LLM_TOOLS, 
-  verifyQualificationConsistencyTool 
+import {
+  AGENT_TOOLS,
+  VERIFICATION_LLM_TOOLS,
+  verifyQualificationConsistencyTool,
 } from "./tools.js";
 import { loadChatModel } from "./utils.js";
 import * as fs from "fs";
@@ -33,7 +39,8 @@ export enum EntityType {
 // Define the new state structure including entities
 const AppStateAnnotation = Annotation.Root({
   qualMessages: Annotation<BaseMessage[]>({
-    reducer: (currentMessages, newMessages) => currentMessages.concat(newMessages),
+    reducer: (currentMessages, newMessages) =>
+      currentMessages.concat(newMessages),
     default: () => [],
   }),
   entitiesToQualify: Annotation<string[]>({
@@ -43,17 +50,17 @@ const AppStateAnnotation = Annotation.Root({
         return currentState.concat(updateValue);
       }
       // If it's a single string, wrap it in an array before concat
-      if (typeof updateValue === 'string') {
+      if (typeof updateValue === "string") {
         return currentState.concat([updateValue]);
       }
-      return currentState; 
+      return currentState;
     },
     default: () => [],
   }),
   qualificationSummary: Annotation<QualificationItem[]>({
     reducer: (
-      _currentState: QualificationItem[] | undefined, 
-      updateValue: QualificationItem | QualificationItem[] | undefined
+      _currentState: QualificationItem[] | undefined,
+      updateValue: QualificationItem | QualificationItem[] | undefined,
     ): QualificationItem[] => {
       // The tool is expected to return an array for 'qualificationSummary' key.
       if (Array.isArray(updateValue)) {
@@ -61,7 +68,7 @@ const AppStateAnnotation = Annotation.Root({
       }
       // If updateValue is not an array (e.g., undefined from other operations or a single item which is not expected from this tool for this key)
       // then return an empty array, effectively clearing or resetting if the update is invalid for replacement.
-      return []; 
+      return [];
     },
     default: () => [],
   }),
@@ -70,12 +77,14 @@ const AppStateAnnotation = Annotation.Root({
     default: () => ({}),
   }),
   verificationLoopCount: Annotation<number>({
-    reducer: (_currentState, updateValue) => typeof updateValue === 'number' ? updateValue : 0,
+    reducer: (_currentState, updateValue) =>
+      typeof updateValue === "number" ? updateValue : 0,
     default: () => 0,
   }),
   // Used to signal from verification back to main agent if entities are missing
   continueQualificationSignal: Annotation<boolean>({
-    reducer: (_currentState, updateValue) => typeof updateValue === 'boolean' ? updateValue : false,
+    reducer: (_currentState, updateValue) =>
+      typeof updateValue === "boolean" ? updateValue : false,
     default: () => false,
   }),
   // Add qualificationCriteria and entityTypes here
@@ -83,7 +92,8 @@ const AppStateAnnotation = Annotation.Root({
     reducer: (_currentState, updateValue) => updateValue, // Replace strategy
     default: () => "",
   }),
-  entityTypes: Annotation<EntityType[]>({ // Use the newly defined enum
+  entityTypes: Annotation<EntityType[]>({
+    // Use the newly defined enum
     reducer: (currentState, updateValue) => currentState.concat(updateValue), // Concat strategy
     default: () => [],
   }),
@@ -109,24 +119,40 @@ const verificationPromptTemplate = fs.readFileSync(
 const MAX_VERIFICATION_LOOPS = 5;
 
 // Helper to create an AIMessage from a chunk or ensure it's a valid AIMessage for ToolNode
-function prepareMessageForToolNode(lastMessage: BaseMessage | undefined, nodeName: string): AIMessage {
+function prepareMessageForToolNode(
+  lastMessage: BaseMessage | undefined,
+  nodeName: string,
+): AIMessage {
   if (!lastMessage) {
     throw new Error(`${nodeName}: No last message found.`);
   }
 
   if (lastMessage instanceof AIMessage) {
     if (!lastMessage.tool_calls || lastMessage.tool_calls.length === 0) {
-      throw new Error(`${nodeName}: AIMessage received, but no tool_calls found.`);
+      throw new Error(
+        `${nodeName}: AIMessage received, but no tool_calls found.`,
+      );
     }
     return lastMessage;
-  } else if (typeof lastMessage === 'object' && lastMessage !== null && 'tool_calls' in lastMessage && Array.isArray((lastMessage as any).tool_calls) && (lastMessage as any).tool_calls.length > 0) {
+  } else if (
+    typeof lastMessage === "object" &&
+    lastMessage !== null &&
+    "tool_calls" in lastMessage &&
+    Array.isArray((lastMessage as any).tool_calls) &&
+    (lastMessage as any).tool_calls.length > 0
+  ) {
     const chunk = lastMessage as any;
     let extractedTextContent = "";
-    if (typeof chunk.content === 'string') {
+    if (typeof chunk.content === "string") {
       extractedTextContent = chunk.content;
     } else if (Array.isArray(chunk.content)) {
       for (const part of chunk.content) {
-        if (typeof part === 'object' && part !== null && part.type === 'text' && typeof (part as any).text === 'string') {
+        if (
+          typeof part === "object" &&
+          part !== null &&
+          part.type === "text" &&
+          typeof (part as any).text === "string"
+        ) {
           extractedTextContent += (part as any).text + "\n";
         }
       }
@@ -135,32 +161,58 @@ function prepareMessageForToolNode(lastMessage: BaseMessage | undefined, nodeNam
     return new AIMessage({
       content: extractedTextContent || "",
       tool_calls: chunk.tool_calls,
-      ...(chunk.invalid_tool_calls && { invalid_tool_calls: chunk.invalid_tool_calls }),
+      ...(chunk.invalid_tool_calls && {
+        invalid_tool_calls: chunk.invalid_tool_calls,
+      }),
       ...(chunk.id && { id: chunk.id }),
-      ...(chunk.additional_kwargs && { additional_kwargs: chunk.additional_kwargs }),
-      ...(chunk.response_metadata && { response_metadata: chunk.response_metadata }),
+      ...(chunk.additional_kwargs && {
+        additional_kwargs: chunk.additional_kwargs,
+      }),
+      ...(chunk.response_metadata && {
+        response_metadata: chunk.response_metadata,
+      }),
       ...(chunk.usage_metadata && { usage_metadata: chunk.usage_metadata }),
     });
   } else {
-    throw new Error(`${nodeName}: Last message is not an AIMessage or a compatible AIMessageChunk with tool_calls.`);
+    throw new Error(
+      `${nodeName}: Last message is not an AIMessage or a compatible AIMessageChunk with tool_calls.`,
+    );
   }
 }
 
 // Wrapper for agentToolsNode
-async function wrappedAgentToolsNode(state: AppState, config?: RunnableConfig): Promise<Partial<AppStateUpdate>> {
+async function wrappedAgentToolsNode(
+  state: AppState,
+  config?: RunnableConfig,
+): Promise<Partial<AppStateUpdate>> {
   const lastMessage = state.qualMessages[state.qualMessages.length - 1];
-  const messageForToolNode = prepareMessageForToolNode(lastMessage, "wrappedAgentToolsNode");
+  const messageForToolNode = prepareMessageForToolNode(
+    lastMessage,
+    "wrappedAgentToolsNode",
+  );
   const toolExecutor = new ToolNode(AGENT_TOOLS);
-  const toolExecutorOutput = await toolExecutor.invoke({ messages: [messageForToolNode] }, config);
+  const toolExecutorOutput = await toolExecutor.invoke(
+    { messages: [messageForToolNode] },
+    config,
+  );
   return { qualMessages: toolExecutorOutput.messages };
 }
 
 // Wrapper for verificationToolsNode
-async function wrappedVerificationToolsNode(state: AppState, config?: RunnableConfig): Promise<Partial<AppStateUpdate>> {
+async function wrappedVerificationToolsNode(
+  state: AppState,
+  config?: RunnableConfig,
+): Promise<Partial<AppStateUpdate>> {
   const lastMessage = state.qualMessages[state.qualMessages.length - 1];
-  const messageForToolNode = prepareMessageForToolNode(lastMessage, "wrappedVerificationToolsNode");
+  const messageForToolNode = prepareMessageForToolNode(
+    lastMessage,
+    "wrappedVerificationToolsNode",
+  );
   const toolExecutor = new ToolNode(VERIFICATION_LLM_TOOLS);
-  const toolExecutorOutput = await toolExecutor.invoke({ messages: [messageForToolNode] }, config);
+  const toolExecutorOutput = await toolExecutor.invoke(
+    { messages: [messageForToolNode] },
+    config,
+  );
   return { qualMessages: toolExecutorOutput.messages };
 }
 
@@ -170,7 +222,9 @@ async function agentNode(
   config: RunnableConfig,
 ): Promise<AppStateUpdate> {
   const configuration = ensureConfiguration(config);
-  const model = (await loadChatModel(configuration.model)).bindTools(AGENT_TOOLS);
+  const model = (await loadChatModel(configuration.model)).bindTools(
+    AGENT_TOOLS,
+  );
 
   // Prepare system message
   // The system prompt references state.entitiesToQualify and state.qualificationSummary
@@ -181,22 +235,24 @@ async function agentNode(
   );
 
   // Optionally, provide a snapshot of key state fields for easier access by LLM, though prompt guides it to use state.
-  const entitiesListString = state.entitiesToQualify?.length > 0 
-    ? `Snapshot of entitiesToQualify:\n${state.entitiesToQualify.join("\n")}` 
-    : "Snapshot: entitiesToQualify is empty.";
-  
-  const qualificationSummaryString = state.qualificationSummary?.length > 0
-    ? `Snapshot of qualificationSummary:\n${JSON.stringify(state.qualificationSummary, null, 2)}`
-    : "Snapshot: qualificationSummary is empty.";
+  const entitiesListString =
+    state.entitiesToQualify?.length > 0
+      ? `Snapshot of entitiesToQualify:\n${state.entitiesToQualify.join("\n")}`
+      : "Snapshot: entitiesToQualify is empty.";
+
+  const qualificationSummaryString =
+    state.qualificationSummary?.length > 0
+      ? `Snapshot of qualificationSummary:\n${JSON.stringify(state.qualificationSummary, null, 2)}`
+      : "Snapshot: qualificationSummary is empty.";
 
   // Append snapshots to the main system prompt that already guides the LLM.
   const finalSystemContent = `${formattedSystemPrompt}\n\nSupplemental Context Snapshots (for your reference; primary data is in state):\n${entitiesListString}\n${qualificationSummaryString}`;
-  
-   // Filter out any prior messages that have empty content to prevent empty 'parts' in API requests
+
+  // Filter out any prior messages that have empty content to prevent empty 'parts' in API requests
   const filteredHistory: BaseMessage[] = state.qualMessages.filter((m) => {
     const content = m.content;
-    if (typeof content === 'string') {
-      return content.trim() !== '';
+    if (typeof content === "string") {
+      return content.trim() !== "";
     }
     if (Array.isArray(content)) {
       return content.length > 0;
@@ -211,7 +267,7 @@ async function agentNode(
   ];
 
   const response = await model.invoke(messagesForLlm);
-  
+
   // Start of new logic to handle potential state updates from tools
   let updateFromTool: Partial<AppStateUpdate> = {};
   const lastMessage = state.qualMessages[state.qualMessages.length - 1];
@@ -222,14 +278,22 @@ async function agentNode(
     const toolMessage = lastMessage as any; // Cast to any to access .name and .content
     if (toolMessage.name === "qualify_entities") {
       try {
-        if (typeof toolMessage.content === 'string') {
+        if (typeof toolMessage.content === "string") {
           const parsedContent = JSON.parse(toolMessage.content);
-          if (parsedContent && parsedContent.update && Array.isArray(parsedContent.update.qualificationSummary)) {
-            updateFromTool.qualificationSummary = parsedContent.update.qualificationSummary as QualificationItem[];
+          if (
+            parsedContent &&
+            parsedContent.update &&
+            Array.isArray(parsedContent.update.qualificationSummary)
+          ) {
+            updateFromTool.qualificationSummary = parsedContent.update
+              .qualificationSummary as QualificationItem[];
           }
         }
       } catch (e) {
-        console.error("Error parsing qualificationSummary from qualify_entities tool message:", e);
+        console.error(
+          "Error parsing qualificationSummary from qualify_entities tool message:",
+          e,
+        );
       }
     }
   }
@@ -242,49 +306,92 @@ async function agentNode(
 async function programmaticVerificationNode(
   state: AppState,
   _config: RunnableConfig,
-): Promise<Partial<AppState>> { 
+): Promise<Partial<AppState>> {
   let currentQualificationSummary = state.qualificationSummary; // Default to state
   let updateToReturn: Partial<AppState> = {};
 
   // Check for an update from the last tool call (e.g., from verificationToolsNode)
   const lastMessage = state.qualMessages[state.qualMessages.length - 1];
   if (lastMessage && lastMessage.constructor.name === "ToolMessage") {
-    const toolMessage = lastMessage as any; 
+    const toolMessage = lastMessage as any;
     // Safely check toolMessage and its properties
-    if (toolMessage && typeof toolMessage.name === 'string' && toolMessage.name === "qualify_entities" && typeof toolMessage.content === 'string') {
+    if (
+      toolMessage &&
+      typeof toolMessage.name === "string" &&
+      toolMessage.name === "qualify_entities" &&
+      typeof toolMessage.content === "string"
+    ) {
       try {
         const parsedContent = JSON.parse(toolMessage.content);
-        if (parsedContent && parsedContent.update && Array.isArray(parsedContent.update.qualificationSummary)) {
-          currentQualificationSummary = parsedContent.update.qualificationSummary as QualificationItem[];
+        if (
+          parsedContent &&
+          parsedContent.update &&
+          Array.isArray(parsedContent.update.qualificationSummary)
+        ) {
+          currentQualificationSummary = parsedContent.update
+            .qualificationSummary as QualificationItem[];
           updateToReturn.qualificationSummary = currentQualificationSummary;
         }
       } catch (e) {
-        console.error("Error parsing qualificationSummary from tool message in programmaticVerificationNode:", e);
+        console.error(
+          "Error parsing qualificationSummary from tool message in programmaticVerificationNode:",
+          e,
+        );
       }
     }
   }
 
-  const { entitiesToQualify } = state; 
-  const toolInput = { entitiesToQualify, qualificationSummary: currentQualificationSummary }; 
-  
+  const { entitiesToQualify } = state;
+  const toolInput = {
+    entitiesToQualify,
+    qualificationSummary: currentQualificationSummary,
+  };
+
   try {
     const funcResult = await verifyQualificationConsistencyTool.func(toolInput);
 
-    if (funcResult && typeof funcResult === 'object' && 'verificationResults' in funcResult) {
-      const verificationData = (funcResult as { verificationResults: unknown }).verificationResults;
-      if (typeof verificationData === 'object' && verificationData !== null) {
-        updateToReturn.verificationResults = verificationData as Record<string, any>;
+    if (
+      funcResult &&
+      typeof funcResult === "object" &&
+      "verificationResults" in funcResult
+    ) {
+      const verificationData = (funcResult as { verificationResults: unknown })
+        .verificationResults;
+      if (typeof verificationData === "object" && verificationData !== null) {
+        updateToReturn.verificationResults = verificationData as Record<
+          string,
+          any
+        >;
       } else {
-        console.error("Verification tool's 'verificationResults' property is not a valid object. Output:", funcResult);
-        updateToReturn.verificationResults = { error: "Verification tool's 'verificationResults' was not an object", final_consistency: false };
+        console.error(
+          "Verification tool's 'verificationResults' property is not a valid object. Output:",
+          funcResult,
+        );
+        updateToReturn.verificationResults = {
+          error: "Verification tool's 'verificationResults' was not an object",
+          final_consistency: false,
+        };
       }
     } else {
-      console.error("Verification tool's func did not return the expected structure (e.g., missing 'verificationResults'). Output:", funcResult);
-      updateToReturn.verificationResults = { error: "Verification tool returned unexpected data format or was null/undefined during programmatic check", final_consistency: false };
+      console.error(
+        "Verification tool's func did not return the expected structure (e.g., missing 'verificationResults'). Output:",
+        funcResult,
+      );
+      updateToReturn.verificationResults = {
+        error:
+          "Verification tool returned unexpected data format or was null/undefined during programmatic check",
+        final_consistency: false,
+      };
     }
   } catch (e: any) {
-    console.error("Error running programmaticVerificationNode's tool function (verifyQualificationConsistencyTool):", e);
-    updateToReturn.verificationResults = { error: `Verification tool execution failed during programmatic check: ${e.message}`, final_consistency: false };
+    console.error(
+      "Error running programmaticVerificationNode's tool function (verifyQualificationConsistencyTool):",
+      e,
+    );
+    updateToReturn.verificationResults = {
+      error: `Verification tool execution failed during programmatic check: ${e.message}`,
+      final_consistency: false,
+    };
   }
   return updateToReturn;
 }
@@ -294,11 +401,25 @@ async function verificationAgentNode(
   config: RunnableConfig,
 ): Promise<AppStateUpdate> {
   const configuration = ensureConfiguration(config);
-  const model = (await loadChatModel(configuration.model)).bindTools(VERIFICATION_LLM_TOOLS);
+  const model = (await loadChatModel(configuration.model)).bindTools(
+    VERIFICATION_LLM_TOOLS,
+  );
 
-  const entitiesToQualifyString = JSON.stringify(state.entitiesToQualify, null, 2);
-  const qualificationSummaryString = JSON.stringify(state.qualificationSummary, null, 2);
-  const verificationIssuesString = JSON.stringify(state.verificationResults, null, 2);
+  const entitiesToQualifyString = JSON.stringify(
+    state.entitiesToQualify,
+    null,
+    2,
+  );
+  const qualificationSummaryString = JSON.stringify(
+    state.qualificationSummary,
+    null,
+    2,
+  );
+  const verificationIssuesString = JSON.stringify(
+    state.verificationResults,
+    null,
+    2,
+  );
 
   const populatedPrompt = verificationPromptTemplate
     .replace("{entitiesToQualifyString}", entitiesToQualifyString)
@@ -310,19 +431,23 @@ async function verificationAgentNode(
     new HumanMessage(populatedPrompt),
     // No prior messages for verification agent, it gets all context in the prompt.
   ];
-  
+
   const response = await model.invoke(messagesForLlm);
   const newVerificationLoopCount = (state.verificationLoopCount || 0) + 1;
-  
-  let update: AppStateUpdate = { 
-    qualMessages: [response], 
+
+  let update: AppStateUpdate = {
+    qualMessages: [response],
     verificationLoopCount: newVerificationLoopCount,
-    continueQualificationSignal: false // Default to false
+    continueQualificationSignal: false, // Default to false
   };
 
-  if (response.content && typeof response.content === 'string' && response.content.includes("<continue_qualification/>")) {
-    update.verificationLoopCount = 0; 
-    update.continueQualificationSignal = true; 
+  if (
+    response.content &&
+    typeof response.content === "string" &&
+    response.content.includes("<continue_qualification/>")
+  ) {
+    update.verificationLoopCount = 0;
+    update.continueQualificationSignal = true;
   }
 
   return update;
@@ -332,7 +457,8 @@ async function verificationAgentNode(
 function shouldContinueMainWorkflowNode(state: AppState): string {
   const lastMessage = state.qualMessages[state.qualMessages.length - 1];
 
-  if (lastMessage) { // Ensure there is a last message
+  if (lastMessage) {
+    // Ensure there is a last message
     // More robust check for tool calls, similar to entity_extraction_agent_js
     // This relies on lastMessage being AIMessage-like or an actual AIMessage instance
     const toolCalls = (lastMessage as AIMessage)?.tool_calls;
@@ -345,13 +471,18 @@ function shouldContinueMainWorkflowNode(state: AppState): string {
     const content = (lastMessage as AIMessage)?.content;
     let textForSignalCheck = "";
 
-    if (typeof content === 'string') {
+    if (typeof content === "string") {
       textForSignalCheck = content;
     } else if (Array.isArray(content)) {
       // Iterate through content blocks to find and concatenate text parts.
       for (const block of content) {
         // Ensure block has 'type' and 'text' properties before accessing
-        if (block && typeof block.type === 'string' && block.type === "text" && typeof block.text === 'string') {
+        if (
+          block &&
+          typeof block.type === "string" &&
+          block.type === "text" &&
+          typeof block.text === "string"
+        ) {
           textForSignalCheck += block.text + "\n"; // Concatenate if there are multiple text blocks
         }
       }
@@ -370,9 +501,10 @@ function routeAfterProgrammaticVerificationNode(state: AppState): string {
   if (state.verificationResults?.final_consistency === true) {
     return "__end__";
   }
-  if ((state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS) { // Ensure verificationLoopCount is not undefined
+  if ((state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS) {
+    // Ensure verificationLoopCount is not undefined
     console.warn("Max verification loops reached. Ending.");
-    return "__end__"; 
+    return "__end__";
   }
   return "verificationAgentNode";
 }
@@ -394,28 +526,35 @@ function routeAfterVerificationAgentNode(state: AppState): string {
     const content = aiMessage.content;
     let textForSignalCheck = "";
 
-    if (typeof content === 'string') {
+    if (typeof content === "string") {
       textForSignalCheck = content;
     } else if (Array.isArray(content)) {
       // Iterate through content blocks to find and concatenate text parts.
       for (const block of content) {
         // Ensure block has 'type' and 'text' properties before accessing
-        if (block && typeof block.type === 'string' && block.type === "text" && typeof block.text === 'string') {
+        if (
+          block &&
+          typeof block.type === "string" &&
+          block.type === "text" &&
+          typeof block.text === "string"
+        ) {
           textForSignalCheck += block.text + "\n"; // Concatenate if there are multiple text blocks
         }
       }
       textForSignalCheck = textForSignalCheck.trim();
     }
-    
+
     if (textForSignalCheck.includes("<continue_qualification/>")) {
-      return "agentNode"; 
+      return "agentNode";
     }
     if (textForSignalCheck.includes("<verification_complete/>")) {
       return "programmaticVerificationNode";
     }
   }
-  
-  console.warn("Unexpected response or state from verification agent, re-routing to programmatic verification for re-assessment.");
+
+  console.warn(
+    "Unexpected response or state from verification agent, re-routing to programmatic verification for re-assessment.",
+  );
   return "programmaticVerificationNode";
 }
 
@@ -446,44 +585,36 @@ const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
 // Define edges on the fully typed workflow object
 workflow.addEdge("__start__", "agentNode");
 
-workflow.addConditionalEdges(
-  "agentNode",
-  shouldContinueMainWorkflowNode,
-  {
-    "agentToolsNode": "agentToolsNode",
-    "programmaticVerificationNode": "programmaticVerificationNode",
-    "agentNode": "agentNode",
-  }
-);
+workflow.addConditionalEdges("agentNode", shouldContinueMainWorkflowNode, {
+  agentToolsNode: "agentToolsNode",
+  programmaticVerificationNode: "programmaticVerificationNode",
+  agentNode: "agentNode",
+});
 
 // Replace the above line with conditional routing for agentToolsNode
-workflow.addConditionalEdges(
-  "agentToolsNode",
-  routeAfterAgentToolsNode,
-  {
-    "programmaticVerificationNode": "programmaticVerificationNode",
-    "agentNode": "agentNode", // Fallback to agentNode
-  }
-);
+workflow.addConditionalEdges("agentToolsNode", routeAfterAgentToolsNode, {
+  programmaticVerificationNode: "programmaticVerificationNode",
+  agentNode: "agentNode", // Fallback to agentNode
+});
 
 workflow.addConditionalEdges(
   "programmaticVerificationNode",
   routeAfterProgrammaticVerificationNode,
   {
-    "verificationAgentNode": "verificationAgentNode",
-    "__end__": "__end__",
-  }
+    verificationAgentNode: "verificationAgentNode",
+    __end__: "__end__",
+  },
 );
 
 workflow.addConditionalEdges(
   "verificationAgentNode",
   routeAfterVerificationAgentNode,
   {
-    "verificationToolsNode": "verificationToolsNode",
-    "agentNode": "agentNode", 
-    "programmaticVerificationNode": "programmaticVerificationNode",
-  }
+    verificationToolsNode: "verificationToolsNode",
+    agentNode: "agentNode",
+    programmaticVerificationNode: "programmaticVerificationNode",
+  },
 );
-workflow.addEdge("verificationToolsNode", "programmaticVerificationNode"); 
+workflow.addEdge("verificationToolsNode", "programmaticVerificationNode");
 
 export const graph = workflow.compile();

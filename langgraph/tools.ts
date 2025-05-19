@@ -5,10 +5,12 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 
-
-
 const updateQualificationCriteriaSchema = z.object({
-  criteria: z.string().describe("A string containing all qualification criteria, typically formatted as a detailed list, to guide sub-agents in their tasks. This will overwrite any previous criteria."),
+  criteria: z
+    .string()
+    .describe(
+      "A string containing all qualification criteria, typically formatted as a detailed list, to guide sub-agents in their tasks. This will overwrite any previous criteria.",
+    ),
 });
 
 /**
@@ -18,7 +20,8 @@ const updateQualificationCriteriaSchema = z.object({
  */
 const updateQualificationCriteria = new DynamicStructuredTool({
   name: "update_qualification_criteria",
-  description: "Use this tool to set or update the qualification criteria for entity processing. Provide a single string that details all criteria (e.g., a bullet list based on user query). This will overwrite any existing criteria and will be used by all sub-agents.",
+  description:
+    "Use this tool to set or update the qualification criteria for entity processing. Provide a single string that details all criteria (e.g., a bullet list based on user query). This will overwrite any existing criteria and will be used by all sub-agents.",
   schema: updateQualificationCriteriaSchema,
   func: async (args: z.infer<typeof updateQualificationCriteriaSchema>) => {
     // This tool returns an object structured to update the 'qualificationCriteria'
@@ -27,6 +30,4 @@ const updateQualificationCriteria = new DynamicStructuredTool({
   },
 });
 
-export const TOOLS = [
-  updateQualificationCriteria,
-]; 
+export const TOOLS = [updateQualificationCriteria];

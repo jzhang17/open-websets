@@ -25,7 +25,9 @@ export default function Home() {
       </div>
       <div className="flex items-center justify-center flex-1 w-full px-4 -mt-40">
         <div className="text-center max-w-lg w-full">
-          <h1 className="text-2xl font-bold tracking-tight">Find your (almost) perfect list</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Find your (almost) perfect list
+          </h1>
 
           <Tabs defaultValue="people" className="w-full mt-4">
             <TabsList className="grid grid-cols-4 w-full">
@@ -47,11 +49,14 @@ export default function Home() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          
-          <form onSubmit={handleSubmit} className="mt-4 flex flex-col items-center space-y-4">
-            <Input 
+
+          <form
+            onSubmit={handleSubmit}
+            className="mt-4 flex flex-col items-center space-y-4"
+          >
+            <Input
               name="query"
-              placeholder="Describe what you're looking for..." 
+              placeholder="Describe what you're looking for..."
               className="w-full text-lg bg-background border-input"
               multiline={true}
               disabled={isLoading}

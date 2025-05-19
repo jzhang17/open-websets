@@ -4,7 +4,7 @@
  */
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { Exa } from 'exa-js';
+import { Exa } from "exa-js";
 
 // Define an interface for the search result object from Exa
 interface ExaSearchResult {
@@ -28,7 +28,7 @@ const webCrawlSchema = z.object({
 const webCrawl = new DynamicStructuredTool({
   name: "web_crawl",
   description:
-    "Scrape the provided web pages for detailed information using Exa AI. Use with less than 20 links (most optimally less than 10). Input format: {\"links\": [\"site1.com\", \"site2.com\", ...]}",
+    'Scrape the provided web pages for detailed information using Exa AI. Use with less than 20 links (most optimally less than 10). Input format: {"links": ["site1.com", "site2.com", ...]}',
   schema: webCrawlSchema, // Schema for validation by the framework
   func: async (args: z.infer<typeof webCrawlSchema>) => {
     const { links } = args;
@@ -45,14 +45,20 @@ const webCrawl = new DynamicStructuredTool({
     let combinedContent: string[] = [];
 
     try {
-      const contentsResponse: ExaContentsResponse = await exa.getContents(links) as ExaContentsResponse;
+      const contentsResponse: ExaContentsResponse = (await exa.getContents(
+        links,
+      )) as ExaContentsResponse;
 
       if (contentsResponse.results && contentsResponse.results.length > 0) {
-        combinedContent = contentsResponse.results.map((result: ExaSearchResult) => {
-          let content = result.text || `No content retrieved for ${result.url || result.id}`;
-          content = content.replace(/\$/g, "\\$"); // Escape dollar signs
-          return content;
-        });
+        combinedContent = contentsResponse.results.map(
+          (result: ExaSearchResult) => {
+            let content =
+              result.text ||
+              `No content retrieved for ${result.url || result.id}`;
+            content = content.replace(/\$/g, "\\$"); // Escape dollar signs
+            return content;
+          },
+        );
       } else {
         return "Error: No content retrieved from Exa or empty results.";
       }
@@ -75,17 +81,19 @@ const batchWebSearchSchema = z.object({
 const batchWebSearch = new DynamicStructuredTool({
   name: "batch_web_search",
   description:
-    "Traditional keyword-based search (Google via Search1API) that processes multiple queries simultaneously. Use with less than 50 queries (most optimally less than 30). Input format: {\"queries\": [\"query1\", \"query2\", \"query3\"]}",
+    'Traditional keyword-based search (Google via Search1API) that processes multiple queries simultaneously. Use with less than 50 queries (most optimally less than 30). Input format: {"queries": ["query1", "query2", "query3"]}',
   schema: batchWebSearchSchema,
   func: async (args: z.infer<typeof batchWebSearchSchema>) => {
     const { queries } = args;
 
     const SEARCH1API_KEY = process.env.SEARCH1API_KEY;
     if (!SEARCH1API_KEY) {
-      return JSON.stringify({ error: "SEARCH1API_KEY not found in environment variables." });
+      return JSON.stringify({
+        error: "SEARCH1API_KEY not found in environment variables.",
+      });
     }
     if (!queries || queries.length === 0) {
-        return JSON.stringify({ error: "No queries provided." });
+      return JSON.stringify({ error: "No queries provided." });
     }
 
     const headers = {
@@ -111,14 +119,18 @@ const batchWebSearch = new DynamicStructuredTool({
 
       if (!response.ok) {
         console.error(`Search API error: Status ${response.status}`);
-        return JSON.stringify({ error: `Search API error: Status ${response.status}` });
+        return JSON.stringify({
+          error: `Search API error: Status ${response.status}`,
+        });
       }
       const result = await response.json();
-      return JSON.stringify(result); 
+      return JSON.stringify(result);
     } catch (error: any) {
       console.error(`Search API error: ${error.message}`);
-      if (error.name === 'TimeoutError') {
-        return JSON.stringify({ error: "Search API request timed out after 15 seconds." });
+      if (error.name === "TimeoutError") {
+        return JSON.stringify({
+          error: "Search API request timed out after 15 seconds.",
+        });
       }
       return JSON.stringify({ error: `Search API error: ${error.message}` });
     }
@@ -132,7 +144,9 @@ const entitySchema = z.object({
 });
 
 const extractEntitiesSchema = z.object({
-  entities: z.array(entitySchema).describe("A list of entities, where each entity has a name and a URL."),
+  entities: z
+    .array(entitySchema)
+    .describe("A list of entities, where each entity has a name and a URL."),
 });
 
 /**
@@ -142,16 +156,17 @@ const extractEntitiesSchema = z.object({
  */
 const extractEntities = new DynamicStructuredTool({
   name: "extract_entities",
-  description: "Use this tool to report entities you have identified. Provide entities as a list, where each entity is an object with 'name' and 'url' fields. The graph will update the main state.",
+  description:
+    "Use this tool to report entities you have identified. Provide entities as a list, where each entity is an object with 'name' and 'url' fields. The graph will update the main state.",
   schema: extractEntitiesSchema,
   func: async (args: z.infer<typeof extractEntitiesSchema>) => {
     // The tool's job is to return the data that should update the 'entities' channel in the state.
     // LangGraph's ToolNode will take this output and merge it into the graph state.
     // Because our AppStateAnnotation defines an 'entities' channel with a reducer,
     // returning { entities: args.entities } will correctly update that part of the state.
-    
+
     // Optionally, add any cleaning or validation for names and URLs here
-    const cleanedEntities = args.entities.map(entity => ({
+    const cleanedEntities = args.entities.map((entity) => ({
       name: entity.name.trim(),
       url: entity.url.trim(),
     }));
@@ -161,8 +176,28 @@ const extractEntities = new DynamicStructuredTool({
 
 const exaSearchSchema = z.object({
   queries: z.array(z.string()).describe("A list of search queries."),
-  type: z.enum(["neural", "keyword"]).optional().describe("The type of search to perform for all queries. 'neural' for semantic search, 'keyword' for traditional keyword search."),
-  category: z.enum(["company", "research paper", "news", "pdf", "github", "tweet", "personal site", "linkedin profile", "financial report"]).optional().describe("The category of content to search for across all queries. Limits results to a certain type of document."),
+  type: z
+    .enum(["neural", "keyword"])
+    .optional()
+    .describe(
+      "The type of search to perform for all queries. 'neural' for semantic search, 'keyword' for traditional keyword search.",
+    ),
+  category: z
+    .enum([
+      "company",
+      "research paper",
+      "news",
+      "pdf",
+      "github",
+      "tweet",
+      "personal site",
+      "linkedin profile",
+      "financial report",
+    ])
+    .optional()
+    .describe(
+      "The category of content to search for across all queries. Limits results to a certain type of document.",
+    ),
 });
 
 /**
@@ -171,7 +206,8 @@ const exaSearchSchema = z.object({
 
 const exaSearch = new DynamicStructuredTool({
   name: "exa_search",
-  description: "Perform multiple web searches simultaneously using Exa AI with two modes and category filtering for all queries. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results per query, including entities to qualify and full result details. Input format: {\"queries\": [\"query1\", \"query2\", ...]}",
+  description:
+    "Perform multiple web searches simultaneously using Exa AI with two modes and category filtering for all queries. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results per query, including entities to qualify and full result details. Input format: {\"queries\": [\"query1\", \"query2\", ...]}",
   schema: exaSearchSchema,
   func: async (args: z.infer<typeof exaSearchSchema>) => {
     const { queries, type, category } = args;
@@ -194,7 +230,16 @@ const exaSearch = new DynamicStructuredTool({
       const options: {
         numResults: number;
         type?: "neural" | "keyword";
-        category?: "company" | "research paper" | "news" | "pdf" | "github" | "tweet" | "personal site" | "linkedin profile" | "financial report";
+        category?:
+          | "company"
+          | "research paper"
+          | "news"
+          | "pdf"
+          | "github"
+          | "tweet"
+          | "personal site"
+          | "linkedin profile"
+          | "financial report";
       } = { numResults: 25 };
 
       if (type) {
@@ -204,14 +249,15 @@ const exaSearch = new DynamicStructuredTool({
         options.category = category;
       }
 
-      const searchPromises = queries.map(query => exa.search(query, options));
+      const searchPromises = queries.map((query) => exa.search(query, options));
       const searchResponses = await Promise.all(searchPromises);
-      
-      // Combine results from all queries
-      const allResults = searchResponses.flatMap(response => response.results);
-      
-      return JSON.stringify(allResults);
 
+      // Combine results from all queries
+      const allResults = searchResponses.flatMap(
+        (response) => response.results,
+      );
+
+      return JSON.stringify(allResults);
     } catch (error: any) {
       // Handle potential errors from the Exa API call
       return `Error searching with Exa: ${error.message}`;
@@ -219,9 +265,4 @@ const exaSearch = new DynamicStructuredTool({
   },
 });
 
-export const TOOLS = [
-  exaSearch,
-  webCrawl,
-  batchWebSearch,
-  extractEntities,
-]; // order matters for tool calling
+export const TOOLS = [exaSearch, webCrawl, batchWebSearch, extractEntities]; // order matters for tool calling
