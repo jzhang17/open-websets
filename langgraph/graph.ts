@@ -56,7 +56,7 @@ const ParentAppStateAnnotation = Annotation.Root({
     },
     default: () => [],
   }),
-  entitiesToQualify: Annotation<string[]>({
+  entitiesToQualify: Annotation<Entity[]>({
     reducer: (_currentState, updateValue) => updateValue,
     default: () => [],
   }),
@@ -308,9 +308,12 @@ async function entityProcessingNode(
     processedEntityCount,
     nextBatchEndIndex,
   );
-  const batchEntityNamesToQualify = batchToQualifyObjects.map(
-    (entity: Entity) => entity.name,
-  );
+  const batchEntitiesToQualify = batchToQualifyObjects.map((entity: Entity) => ({
+    index: entity.index,
+    name: entity.name,
+    url: entity.url,
+  }));
+  const batchEntityNamesToQualify = batchEntitiesToQualify.map((e) => e.name);
 
   newParentMessages.push(
     new AIMessage(
@@ -319,7 +322,7 @@ async function entityProcessingNode(
   );
 
   const update: Partial<ParentAppStateUpdate> = {
-    entitiesToQualify: batchEntityNamesToQualify,
+    entitiesToQualify: batchEntitiesToQualify,
     processedEntityCount: nextBatchEndIndex,
     parentMessages: newParentMessages,
   };

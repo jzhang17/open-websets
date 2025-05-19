@@ -15,6 +15,7 @@ import {
   VERIFICATION_LLM_TOOLS,
   verifyQualificationConsistencyTool,
 } from "./tools.js";
+import { type Entity } from "../list_gen_agent_js/graph.js";
 import { loadChatModel } from "./utils.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -22,6 +23,7 @@ import { fileURLToPath } from "url";
 
 // Define the structure for an individual qualification item
 export interface QualificationItem {
+  index: number;
   entity_name: string;
   qualified: boolean;
   reasoning: string;
@@ -43,15 +45,13 @@ const AppStateAnnotation = Annotation.Root({
       currentMessages.concat(newMessages),
     default: () => [],
   }),
-  entitiesToQualify: Annotation<string[]>({
+  entitiesToQualify: Annotation<Entity[]>({
     reducer: (currentState, updateValue) => {
-      // The existing 'entities' reducer was a concat.
       if (Array.isArray(updateValue)) {
         return currentState.concat(updateValue);
       }
-      // If it's a single string, wrap it in an array before concat
-      if (typeof updateValue === "string") {
-        return currentState.concat([updateValue]);
+      if (updateValue && typeof updateValue === "object") {
+        return currentState.concat([updateValue as Entity]);
       }
       return currentState;
     },
@@ -237,7 +237,9 @@ async function agentNode(
   // Optionally, provide a snapshot of key state fields for easier access by LLM, though prompt guides it to use state.
   const entitiesListString =
     state.entitiesToQualify?.length > 0
-      ? `Snapshot of entitiesToQualify:\n${state.entitiesToQualify.join("\n")}`
+      ? `Snapshot of entitiesToQualify:\n${state.entitiesToQualify
+          .map((e) => `${e.index}: ${e.name}`)
+          .join("\n")}`
       : "Snapshot: entitiesToQualify is empty.";
 
   const qualificationSummaryString =

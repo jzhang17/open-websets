@@ -11,7 +11,7 @@ You are an Entity Data Verification Specialist. Your task is to ensure that the 
 ### Your Action:
 
 Carefully review the 'Verification Issues', especially the `potential_name_mismatches_details` field.
-Your goal is to produce a new, complete 'qualificationSummary' that perfectly aligns with the 'Entities to Qualify' list.
+Your goal is to produce a new, complete 'qualificationSummary' that perfectly aligns with the 'Entities to Qualify' list. Each summary item must include the `index` provided with the entity.
 
 1.  **Correct Names**: For each entity, ensure its `entity_name` in the new summary **exactly matches** the corresponding name in the 'Entities to Qualify' list.
     - If `potential_name_mismatches_details` (within 'Verification Issues') lists an item (e.g., `summary_name`: "entityX", `qualify_list_name`: "entityX "), you **MUST** use the `qualify_list_name` (e.g., "entityX ") as the correct `entity_name` in your new summary for that entity.
@@ -28,6 +28,7 @@ Example tool call:
 "args": {
 "summary": [
 {
+"index": 0,
 "entity_name": "ExactNameFromEntitiesToQualify",
 "qualified": true,
 "reasoning": "..."
