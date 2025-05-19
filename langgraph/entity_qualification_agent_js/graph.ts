@@ -136,9 +136,22 @@ async function agentNode(
   // Append snapshots to the main system prompt that already guides the LLM.
   const finalSystemContent = `${formattedSystemPrompt}\n\nSupplemental Context Snapshots (for your reference; primary data is in state):\n${entitiesListString}\n${qualificationSummaryString}`;
   
+  // Filter out any prior messages that have empty content to prevent empty 'parts' in API requests
+  const filteredHistory: BaseMessage[] = state.messages.filter((m) => {
+    const content = m.content;
+    if (typeof content === 'string') {
+      return content.trim() !== '';
+    }
+    if (Array.isArray(content)) {
+      return content.length > 0;
+    }
+    // Keep messages with non-string/array content
+    return true;
+  });
+
   const messagesForLlm: BaseMessage[] = [
     new SystemMessage(finalSystemContent),
-    ...state.messages, // Include prior conversation history
+    ...filteredHistory, // Use filtered history to avoid empty content messages
   ];
 
   const response = await model.invoke(messagesForLlm);
@@ -350,6 +363,22 @@ function routeAfterVerificationAgentNode(state: AppState): string {
   return "programmaticVerificationNode";
 }
 
+// Add this new routing function
+function routeAfterAgentToolsNode(state: AppState): string {
+  const lastMessage = state.messages[state.messages.length - 1];
+
+  // After ToolNode runs, it appends ToolMessage(s) to the state.
+  // We check if the last message is a ToolMessage from 'qualify_entities'.
+  if (lastMessage && lastMessage.constructor.name === "ToolMessage") {
+    const toolMessage = lastMessage as any; // Cast to access 'name'
+    if (toolMessage.name === "qualify_entities") {
+      return "programmaticVerificationNode";
+    }
+  }
+  // Default route back to agentNode for other tools or if no relevant tool message is found
+  return "agentNode";
+}
+
 // Graph definition
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
   .addNode("agentNode", agentNode)
@@ -370,7 +399,16 @@ workflow.addConditionalEdges(
     "agentNode": "agentNode",
   }
 );
-workflow.addEdge("agentToolsNode", "agentNode");
+
+// Replace the above line with conditional routing for agentToolsNode
+workflow.addConditionalEdges(
+  "agentToolsNode",
+  routeAfterAgentToolsNode,
+  {
+    "programmaticVerificationNode": "programmaticVerificationNode",
+    "agentNode": "agentNode", // Fallback to agentNode
+  }
+);
 
 workflow.addConditionalEdges(
   "programmaticVerificationNode",

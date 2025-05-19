@@ -126,24 +126,6 @@ const batchWebSearch = new DynamicStructuredTool({
   },
 });
 
-const extractEntitiesSchema = z.object({
-  entities: z.array(z.string()).describe("A list of entities (strings) to add."),
-});
-
-/**
- * Extracts and reports entities identified by the agent.
- * The graph will handle updating the overall state with these entities.
- */
-const extractEntities = new DynamicStructuredTool({
-  name: "extract_entities",
-  description: "Use this tool to report entities you have identified. Provide entities as a list of strings. The graph will update the main state with entities to qualify.",
-  schema: extractEntitiesSchema,
-  func: async (args: z.infer<typeof extractEntitiesSchema>) => {
-    // The tool's job is to return the data that should update the 'entitiesToQualify' channel in the state.
-    return { entitiesToQualify: args.entities };
-  },
-});
-
 // --- New Tools for Qualification ---
 
 // Schema for qualifyAllEntitiesTool
@@ -288,7 +270,6 @@ export const updateQualificationSummaryStateTool = new DynamicStructuredTool({
 export const AGENT_TOOLS = [
   webCrawl,
   batchWebSearch,
-  extractEntities,
   qualifyAllEntitiesTool,
 ]; // used by the main qualification agent
 
