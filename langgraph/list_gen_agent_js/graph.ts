@@ -54,7 +54,10 @@ const systemPromptPath = path.join(__dirname, "system_prompt.md");
 const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
 
 // Wrapper for this subgraph's ToolNode
-async function listGenToolsNode(state: AppState, config?: RunnableConfig): Promise<Partial<AppStateUpdate>> {
+async function listGenToolsNode(
+  state: AppState,
+  config?: RunnableConfig,
+): Promise<Partial<AppStateUpdate>> {
   const lastMessage = state.listGenMessages[state.listGenMessages.length - 1];
   let messageForToolNode: AIMessage;
 
@@ -64,18 +67,31 @@ async function listGenToolsNode(state: AppState, config?: RunnableConfig): Promi
 
   if (lastMessage instanceof AIMessage) {
     if (!lastMessage.tool_calls || lastMessage.tool_calls.length === 0) {
-      throw new Error("listGenToolsNode: AIMessage received, but no tool_calls found.");
+      throw new Error(
+        "listGenToolsNode: AIMessage received, but no tool_calls found.",
+      );
     }
     messageForToolNode = lastMessage;
-  } else if (typeof lastMessage === 'object' && lastMessage !== null && 'tool_calls' in lastMessage && Array.isArray((lastMessage as any).tool_calls) && (lastMessage as any).tool_calls.length > 0) {
+  } else if (
+    typeof lastMessage === "object" &&
+    lastMessage !== null &&
+    "tool_calls" in lastMessage &&
+    Array.isArray((lastMessage as any).tool_calls) &&
+    (lastMessage as any).tool_calls.length > 0
+  ) {
     // AIMessageChunk-like object
     const chunk = lastMessage as any;
     let extractedTextContent = "";
-    if (typeof chunk.content === 'string') {
+    if (typeof chunk.content === "string") {
       extractedTextContent = chunk.content;
     } else if (Array.isArray(chunk.content)) {
       for (const part of chunk.content) {
-        if (typeof part === 'object' && part !== null && part.type === 'text' && typeof (part as any).text === 'string') {
+        if (
+          typeof part === "object" &&
+          part !== null &&
+          part.type === "text" &&
+          typeof (part as any).text === "string"
+        ) {
           extractedTextContent += (part as any).text + "\n";
         }
       }
@@ -84,18 +100,29 @@ async function listGenToolsNode(state: AppState, config?: RunnableConfig): Promi
     messageForToolNode = new AIMessage({
       content: extractedTextContent || "",
       tool_calls: chunk.tool_calls,
-      ...(chunk.invalid_tool_calls && { invalid_tool_calls: chunk.invalid_tool_calls }),
+      ...(chunk.invalid_tool_calls && {
+        invalid_tool_calls: chunk.invalid_tool_calls,
+      }),
       ...(chunk.id && { id: chunk.id }),
-      ...(chunk.additional_kwargs && { additional_kwargs: chunk.additional_kwargs }),
-      ...(chunk.response_metadata && { response_metadata: chunk.response_metadata }),
+      ...(chunk.additional_kwargs && {
+        additional_kwargs: chunk.additional_kwargs,
+      }),
+      ...(chunk.response_metadata && {
+        response_metadata: chunk.response_metadata,
+      }),
       ...(chunk.usage_metadata && { usage_metadata: chunk.usage_metadata }),
     });
   } else {
-    throw new Error("listGenToolsNode: Last message is not an AIMessage or a compatible AIMessageChunk with tool_calls.");
+    throw new Error(
+      "listGenToolsNode: Last message is not an AIMessage or a compatible AIMessageChunk with tool_calls.",
+    );
   }
 
   const toolExecutor = new ToolNode(TOOLS);
-  const toolExecutorOutput = await toolExecutor.invoke({ messages: [messageForToolNode] }, config);
+  const toolExecutorOutput = await toolExecutor.invoke(
+    { messages: [messageForToolNode] },
+    config,
+  );
   return { listGenMessages: toolExecutorOutput.messages };
 }
 
@@ -111,23 +138,27 @@ async function callModel(
 
   let parsedEntitiesFromTool: Entity[] | undefined = undefined;
   if (state.listGenMessages.length > 0) {
-    const lastMessageFromState = state.listGenMessages[state.listGenMessages.length - 1];
+    const lastMessageFromState =
+      state.listGenMessages[state.listGenMessages.length - 1];
 
     // Check if it's a ToolMessage from extract_entities
-    if (lastMessageFromState && lastMessageFromState.constructor.name === "ToolMessage") {
+    if (
+      lastMessageFromState &&
+      lastMessageFromState.constructor.name === "ToolMessage"
+    ) {
       const toolMessage = lastMessageFromState as ToolMessage;
       if (toolMessage.name === "extract_entities") {
-        if (typeof toolMessage.content === 'string') {
+        if (typeof toolMessage.content === "string") {
           try {
             const toolOutput = JSON.parse(toolMessage.content);
             if (toolOutput.entities && Array.isArray(toolOutput.entities)) {
               // Ensure all extracted entities are objects with name and url
               parsedEntitiesFromTool = toolOutput.entities.filter(
-                (entity: any): entity is Entity => 
-                  typeof entity === 'object' &&
+                (entity: any): entity is Entity =>
+                  typeof entity === "object" &&
                   entity !== null &&
-                  typeof entity.name === 'string' &&
-                  typeof entity.url === 'string'
+                  typeof entity.name === "string" &&
+                  typeof entity.url === "string",
               );
             }
           } catch (e) {
@@ -138,10 +169,10 @@ async function callModel(
             );
           }
         } else {
-            console.warn(
-                "extract_entities tool message content was not a string:",
-                toolMessage.content,
-            );
+          console.warn(
+            "extract_entities tool message content was not a string:",
+            toolMessage.content,
+          );
         }
       }
     }
@@ -150,10 +181,7 @@ async function callModel(
   const response = await model.invoke([
     {
       role: "system",
-      content: systemPrompt.replace(
-        "{system_time}",
-        new Date().toISOString(),
-      ),
+      content: systemPrompt.replace("{system_time}", new Date().toISOString()),
     },
     ...state.listGenMessages,
   ]);

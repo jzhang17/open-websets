@@ -12,7 +12,7 @@ export async function loadChatModel(fullySpecifiedName: string) {
       model: fullySpecifiedName,
       apiVersion: "v1beta",
       platformType: "gai",
-      maxReasoningTokens: 0
+      maxReasoningTokens: 0,
     });
   }
   const index = fullySpecifiedName.indexOf("/");

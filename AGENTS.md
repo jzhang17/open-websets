@@ -75,8 +75,6 @@
 
 Before making any changes to the code, please ensure you have thoroughly reviewed the relevant documentation. The documentation for the libraries used in this project is located in the `documentations/` directory. These are Markdown files that have been crawled from the respective library websites.
 
-
-
 ## Routine Maintenance Checklist
 
 Perform the following quick checks on a regular basis to keep the project clean and healthy:
