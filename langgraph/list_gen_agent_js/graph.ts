@@ -11,7 +11,7 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 
 // Define the structure for an entity
-interface Entity {
+export interface Entity {
   name: string;
   url: string;
 }

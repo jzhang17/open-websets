@@ -160,28 +160,31 @@ const extractEntities = new DynamicStructuredTool({
 });
 
 const exaSearchSchema = z.object({
-  query: z.string().describe("The search query."),
-  type: z.enum(["neural", "keyword"]).optional().describe("The type of search to perform. 'neural' for semantic search, 'keyword' for traditional keyword search."),
-  category: z.enum(["company", "research paper", "news", "pdf", "github", "tweet", "personal site", "linkedin profile", "financial report"]).optional().describe("The category of content to search for. Limits results to a certain type of document."),
+  queries: z.array(z.string()).describe("A list of search queries."),
+  type: z.enum(["neural", "keyword"]).optional().describe("The type of search to perform for all queries. 'neural' for semantic search, 'keyword' for traditional keyword search."),
+  category: z.enum(["company", "research paper", "news", "pdf", "github", "tweet", "personal site", "linkedin profile", "financial report"]).optional().describe("The category of content to search for across all queries. Limits results to a certain type of document."),
 });
 
 /**
- * Performs a web search using Exa AI with two modes and category filtering. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results, including entities to qualify and full result details.
+ * Performs multiple web searches simultaneously using Exa AI, supporting two modes and category filtering for all queries. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results per query, including entities to qualify and full result details.
  */
 
 const exaSearch = new DynamicStructuredTool({
   name: "exa_search",
-  description: "Perform a web search using Exa AI with two modes and category filtering. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results, including entities to qualify and full result details.",
+  description: "Perform multiple web searches simultaneously using Exa AI with two modes and category filtering for all queries. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results per query, including entities to qualify and full result details. Input format: {\"queries\": [\"query1\", \"query2\", ...]}",
   schema: exaSearchSchema,
   func: async (args: z.infer<typeof exaSearchSchema>) => {
-    const { query, type, category } = args;
+    const { queries, type, category } = args;
 
     const EXA_API_KEY = process.env.EXA_API_KEY;
     if (!EXA_API_KEY) {
       return "Error: EXA_API_KEY not found in environment variables.";
     }
-    if (!query) {
-      return "Error: No query provided.";
+    if (!queries || queries.length === 0) {
+      return "Error: No queries provided.";
+    }
+    if (queries.length > 5) {
+      return "Error: Too many queries. Please provide 5 or fewer queries.";
     }
 
     const exa = new Exa(EXA_API_KEY);
@@ -201,17 +204,13 @@ const exaSearch = new DynamicStructuredTool({
         options.category = category;
       }
 
-      const searchResponse = await exa.search(query, options);
+      const searchPromises = queries.map(query => exa.search(query, options));
+      const searchResponses = await Promise.all(searchPromises);
       
-      const titles = searchResponse.results
-        .map((result: ExaSearchResult) => result.title)
-        .filter((title): title is string => title !== null && title !== undefined);
-
-      const toolOutputPayload = {
-        entities_to_qualify: titles,
-        actual_search_results: searchResponse.results,
-      };
-      return JSON.stringify(toolOutputPayload);
+      // Combine results from all queries
+      const allResults = searchResponses.flatMap(response => response.results);
+      
+      return JSON.stringify(allResults);
 
     } catch (error: any) {
       // Handle potential errors from the Exa API call

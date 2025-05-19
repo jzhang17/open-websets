@@ -1,162 +1,133 @@
-import { AIMessage, BaseMessage, ToolMessage } from "@langchain/core/messages";
-import { RunnableConfig } from "@langchain/core/runnables";
-import { Annotation, StateGraph } from "@langchain/langgraph";
-import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { BaseMessage } from "@langchain/core/messages";
+import { Annotation, StateGraph, START } from "@langchain/langgraph";
+import { graph as listGenerationGraph, EntityType as ListGenEntityType, type Entity as ListGenEntityInterface } from "./list_gen_agent_js/graph.js";
+import { graph as entityQualificationGraph, type QualificationItem as EQQualificationItem } from "./entity_qualification_agent_js/graph.js";
 
+// New imports for the root agent
+import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
 import { loadChatModel } from "./utils.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import { AIMessage, ToolMessage } from "@langchain/core/messages";
 
-// Define the structure for an entity
-interface Entity {
-  name: string;
-  url: string;
-}
+// Define the structure for an entity by extending the imported one
+interface Entity extends ListGenEntityInterface {}
 
-// Define the EntityType enum
-export enum EntityType {
-  PEOPLE = "people",
-  COMPANIES = "companies",
-  ACADEMIC_PAPERS = "academic papers",
-  NEWS = "news",
-}
+// Alias for imported qualification item type
+type QualificationItem = EQQualificationItem;
 
-// Define the new state structure including entities
-const AppStateAnnotation = Annotation.Root({
+// Define the parent graph's state structure
+const ParentAppStateAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: (currentState, updateValue) => currentState.concat(updateValue),
     default: () => [],
   }),
   entities: Annotation<Entity[]>({
-    reducer: (currentState, updateValue) => currentState.concat(updateValue),
+    reducer: (_currentState, updateValue) => updateValue,
     default: () => [],
   }),
   qualificationCriteria: Annotation<string>({
     reducer: (_currentState, updateValue) => updateValue,
     default: () => "",
   }),
-  entityTypes: Annotation<EntityType[]>({
-    reducer: (currentState, updateValue) => currentState.concat(updateValue),
+  // Use the imported ListGenEntityType
+  entityTypes: Annotation<ListGenEntityType[]>({
+    reducer: (_currentState, updateValue) => updateValue,
+    default: () => [],
+  }),
+  // This now uses the aliased QualificationItem type from EQQualificationItem
+  qualificationSummary: Annotation<QualificationItem[]>({
+    reducer: (_currentState, updateValue) => updateValue,
+    default: () => [],
+  }),
+  entitiesToQualifyNames: Annotation<string[]>({
+    reducer: (_currentState, updateValue) => updateValue,
     default: () => [],
   }),
 });
 
-type AppState = typeof AppStateAnnotation.State;
-type AppStateUpdate = typeof AppStateAnnotation.Update;
-
-// Load the system prompt from the markdown file
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const systemPromptPath = path.join(__dirname, "system_prompt.md");
-const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
-
-// Define the function that calls the model
-async function callModel(
-  state: AppState,
-  config: RunnableConfig,
-): Promise<AppStateUpdate> {
-  /** Call the LLM powering our agent. **/
+// Define the function that calls the agent model
+async function callAgentModel(state: any, config: any) {
   const configuration = ensureConfiguration(config);
-
   const model = (await loadChatModel(configuration.model)).bindTools(TOOLS);
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const systemPromptPath = path.join(__dirname, "system_prompt.md");
+  const systemPrompt = fs.readFileSync(systemPromptPath, "utf-8");
 
-  let parsedEntitiesFromTool: Entity[] | undefined = undefined;
+  let parsedQualificationCriteria: string | undefined = undefined;
   if (state.messages.length > 0) {
     const lastMessageFromState = state.messages[state.messages.length - 1];
-
-    // Check if it's a ToolMessage from extract_entities
     if (lastMessageFromState && lastMessageFromState.constructor.name === "ToolMessage") {
       const toolMessage = lastMessageFromState as ToolMessage;
-      if (toolMessage.name === "extract_entities") {
+      if (toolMessage.name === "update_qualification_criteria") {
         if (typeof toolMessage.content === 'string') {
           try {
             const toolOutput = JSON.parse(toolMessage.content);
-            if (toolOutput.entities && Array.isArray(toolOutput.entities)) {
-              // Ensure all extracted entities are objects with name and url
-              parsedEntitiesFromTool = toolOutput.entities.filter(
-                (entity: any): entity is Entity => 
-                  typeof entity === 'object' &&
-                  entity !== null &&
-                  typeof entity.name === 'string' &&
-                  typeof entity.url === 'string'
-              );
+            if (toolOutput.qualificationCriteria && typeof toolOutput.qualificationCriteria === 'string') {
+              parsedQualificationCriteria = toolOutput.qualificationCriteria;
             }
           } catch (e) {
             console.error(
-              "Failed to parse entities from extract_entities tool message content:",
+              "Failed to parse qualificationCriteria from update_qualification_criteria tool message content:",
               toolMessage.content,
               e,
             );
           }
         } else {
-            console.warn(
-                "extract_entities tool message content was not a string:",
-                toolMessage.content,
-            );
+          console.warn(
+            "update_qualification_criteria tool message content was not a string:",
+            toolMessage.content,
+          );
         }
       }
     }
   }
 
   const response = await model.invoke([
-    {
-      role: "system",
-      content: systemPrompt.replace(
-        "{system_time}",
-        new Date().toISOString(),
-      ),
-    },
+    { role: "system", content: systemPrompt.replace("{system_time}", new Date().toISOString()) },
     ...state.messages,
   ]);
 
-  const update: AppStateUpdate = { messages: [response] };
-  if (parsedEntitiesFromTool && parsedEntitiesFromTool.length > 0) {
-    // The reducer for 'entities' expects the new array of items to add/concat.
-    update.entities = parsedEntitiesFromTool;
+  const update: any = { messages: [response] };
+  if (parsedQualificationCriteria !== undefined) {
+    update.qualificationCriteria = parsedQualificationCriteria;
   }
   return update;
 }
 
-// Define the function that determines whether to continue or not
-function routeModelOutput(state: AppState): string {
+// Define routing logic for the agent node
+function routeAgentModelOutput(state: any) {
   const messages = state.messages;
   const lastMessage = messages[messages.length - 1];
-  // If the LLM is invoking tools, route there.
   if (((lastMessage as AIMessage)?.tool_calls?.length || 0) > 0) {
-    return "tools";
+    return "agentTools";
   }
-  // Otherwise end the graph.
-  else {
-    return "__end__";
-  }
+  return "listGeneration";
 }
 
-// Define a new graph. We use the prebuilt MessagesAnnotation to define state:
-// https://langchain-ai.github.io/langgraphjs/concepts/low_level/#messagesannotation
-const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
-  // Define the two nodes we will cycle between
-  .addNode("callModel", callModel)
-  .addNode("tools", new ToolNode(TOOLS))
-  // Set the entrypoint as `callModel`
-  // This means that this node is the first one called
-  .addEdge("__start__", "callModel")
-  .addConditionalEdges(
-    // First, we define the edges' source node. We use `callModel`.
-    // This means these are the edges taken after the `callModel` node is called.
-    "callModel",
-    // Next, we pass in the function that will determine the sink node(s), which
-    // will be called after the source node is called.
-    routeModelOutput,
-  )
-  // This means that after `tools` is called, `callModel` node is called next.
-  .addEdge("tools", "callModel");
+// Build parent workflow
+const parentWorkflow = new StateGraph(ParentAppStateAnnotation, ConfigurationSchema);
 
-// Finally, we compile it!
-// This compiles it into a graph you can invoke and deploy.
-export const graph = workflow.compile({
-  interruptBefore: [], // if you want to update the state before calling the tools
-  interruptAfter: [],
-});
+// Add the root agent nodes
+parentWorkflow.addNode("agent", callAgentModel);
+parentWorkflow.addNode("agentTools", new ToolNode(TOOLS));
+
+// Add subgraph nodes
+parentWorkflow.addNode("listGeneration", listGenerationGraph as any);
+parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);
+
+// Define workflow edges
+parentWorkflow.addEdge(START, "agent" as any);
+parentWorkflow.addConditionalEdges("agent" as any, routeAgentModelOutput);
+parentWorkflow.addEdge("agentTools" as any, "agent" as any);
+parentWorkflow.addEdge("listGeneration" as any, "entityQualification" as any);
+parentWorkflow.addEdge("entityQualification" as any, "__end__" as any);
+
+// Compile and export the workflow
+export const graph = parentWorkflow.compile();
+
+// End of parent graph definition
