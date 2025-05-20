@@ -68,6 +68,14 @@ const ParentAppStateAnnotation = Annotation.Root({
     },
     default: () => 0,
   }),
+  finishedBatches: Annotation<number>({
+    reducer: (currentState, updateValue) => {
+      const current = typeof currentState === "number" ? currentState : 0;
+      const update = typeof updateValue === "number" ? updateValue : 0;
+      return current + update;
+    },
+    default: () => 0,
+  }),
   // Add annotations for subgraph messages
   listGenMessages: Annotation<BaseMessage[]>({
     reducer: (_currentState, updateValue) => updateValue,
@@ -270,21 +278,35 @@ function routeAgentModelOutput(state: any) {
 
 // Router that fans out qualification work in parallel
 function assignQualificationWorkers(state: ParentAppState) {
-  const { entities, processedEntityCount = 0, qualificationCriteria } = state;
+  const {
+    entities,
+    processedEntityCount = 0,
+    qualificationCriteria,
+    finishedBatches = 0,
+  } = state;
   const batchSize = 15;
   const maxWorkers = 4;
 
-  if (!entities || processedEntityCount >= entities.length) {
+  const totalEntities = entities?.length ?? 0;
+
+  if (finishedBatches * batchSize >= totalEntities) {
     return "__end__";
   }
 
-  const remaining = entities.length - processedEntityCount;
-  const numBatches = Math.min(maxWorkers, Math.ceil(remaining / batchSize));
-  const sends: Send[] = [];
+  const dispatchedBatches = Math.ceil(processedEntityCount / batchSize);
+  const activeBatches = dispatchedBatches - finishedBatches;
+  const capacity = maxWorkers - activeBatches;
 
-  for (let i = 0; i < numBatches; i++) {
-    const start = processedEntityCount + i * batchSize;
-    const end = Math.min(start + batchSize, entities.length);
+  if (capacity <= 0) {
+    return;
+  }
+
+  const sends: Send[] = [];
+  let nextIndex = processedEntityCount;
+
+  for (let i = 0; i < capacity && nextIndex < totalEntities; i++) {
+    const start = nextIndex;
+    const end = Math.min(start + batchSize, totalEntities);
     const batchEntities = entities.slice(start, end).map((e) => ({
       index: e.index,
       name: e.name,
@@ -292,26 +314,21 @@ function assignQualificationWorkers(state: ParentAppState) {
     }));
     const batchNames = batchEntities.map((e) => e.name);
     const qualInstruction = `Please qualify the following entities: ${batchNames.join(", ")}. The qualification criteria are: ${qualificationCriteria}`;
+    nextIndex = end;
     sends.push(
       new Send("entityQualification", {
         entitiesToQualify: batchEntities,
         qualMessages: [new HumanMessage({ content: qualInstruction })],
         qualificationCriteria,
-        processedEntityCount: end,
+        processedEntityCount: nextIndex,
       }),
     );
   }
 
-  return sends;
+  return sends.length > 0 ? sends : undefined;
 }
 
 // After each parallel batch completes, determine whether to continue
-function continueQualification(state: ParentAppState) {
-  if (state.processedEntityCount >= state.entities.length) {
-    return "__end__";
-  }
-  return "qualificationRouter";
-}
 
 // Build parent workflow
 const parentWorkflow = new StateGraph(
@@ -328,7 +345,6 @@ parentWorkflow.addNode("listGeneration", listGenerationGraph);
 // Router node for spawning qualification workers
 parentWorkflow.addNode("qualificationRouter", async () => ({}));
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);
-parentWorkflow.addNode("qualificationMerge", async () => ({}));
 
 // Define workflow edges
 parentWorkflow.addEdge(START, "agent" as any);
@@ -345,12 +361,7 @@ parentWorkflow.addConditionalEdges(
 
 parentWorkflow.addEdge(
   "entityQualification" as any,
-  "qualificationMerge" as any,
-);
-
-parentWorkflow.addConditionalEdges(
-  "qualificationMerge" as any,
-  continueQualification,
+  "qualificationRouter" as any,
 );
 
 // Compile and export the workflow
