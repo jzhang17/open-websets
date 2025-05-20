@@ -105,6 +105,7 @@ export function useAgentRun({
     error,
     send, // Expose the wrapped submit function
     stop,
+    // activeThreadId: checkpoint?.thread_id, // Reverted: Removed activeThreadId
     // You can also expose the raw `submit` from useStream if more complex updates are needed:
     // rawSubmit: submit,
     // And other properties like `interrupt`, `getMessagesMetadata`, etc.

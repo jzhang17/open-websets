@@ -18,7 +18,6 @@ export default function Home() {
     isLoading: agentIsLoading,
     send: sendToAgent,
     error: agentError,
-    agentThreadId,
   } = useAgentRun({
     threadId: currentThreadId,
     initialInput: undefined,
@@ -35,13 +34,6 @@ export default function Home() {
       console.error("Agent run error:", agentError);
     }
   }, [agentError]);
-
-  useEffect(() => {
-    if (agentThreadId && currentThreadId === null) {
-      setCurrentThreadId(agentThreadId);
-      router.push(`/${agentThreadId}`);
-    }
-  }, [agentThreadId, currentThreadId, router]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
