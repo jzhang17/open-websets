@@ -19,10 +19,13 @@ type InputElementProps = BaseInputProps &
 // Define the overall component props - a union of both types plus custom onChange handling
 interface InputProps extends Omit<InputElementProps, "className"> {
   className?: string;
+  value?: string;
   onChange?: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>;
   onKeyDown?: React.KeyboardEventHandler<
     HTMLInputElement | HTMLTextAreaElement
   >;
+  defaultValue?: string;
+  isLoading?: boolean;
 }
 
 interface CachedQuery {
@@ -35,26 +38,33 @@ function Input({
   type,
   cacheKey = "cachedSearchQuery",
   defaultValue,
+  value: propValue,
   onChange: propOnChange,
   onKeyDown: propOnKeyDown,
   multiline = false,
   isLoading = false,
   ...props
 }: InputProps) {
-  // Initialize state with defaultValue or empty string
-  const [inputValue, setInputValue] = React.useState(defaultValue || "");
+  // Initialize state with defaultValue or empty string for uncontrolled
+  // For controlled, parent's value (propValue) is the source of truth
+  const [internalValue, setInternalValue] = React.useState(
+    defaultValue || "",
+  );
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
 
-  // Effect to load from localStorage on initial mount
+  const isControlled = propValue !== undefined;
+  const displayValue = isControlled ? propValue : internalValue;
+
+  // Effect to load from localStorage on initial mount (for uncontrolled mode)
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (!isControlled && typeof window !== "undefined" && cacheKey) {
       const cachedItem = localStorage.getItem(cacheKey);
       if (cachedItem) {
         try {
           const parsedItem: CachedQuery = JSON.parse(cachedItem);
           if (parsedItem.expiresAt > Date.now()) {
-            setInputValue(parsedItem.value);
+            setInternalValue(parsedItem.value);
           } else {
             localStorage.removeItem(cacheKey); // Remove expired item
           }
@@ -64,7 +74,7 @@ function Input({
         }
       }
     }
-  }, [cacheKey]);
+  }, [cacheKey, isControlled]);
 
   // Auto-resize textarea height when content changes
   React.useEffect(() => {
@@ -75,20 +85,22 @@ function Input({
       const scrollHeight = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = `${Math.max(scrollHeight, 48)}px`;
     }
-  }, [inputValue, multiline]);
+  }, [displayValue, multiline]); // Depends on the actual displayed value
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const newValue = e.target.value;
-    setInputValue(newValue);
-    if (typeof window !== "undefined") {
-      const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes in milliseconds
-      const itemToCache: CachedQuery = { value: newValue, expiresAt };
-      localStorage.setItem(cacheKey, JSON.stringify(itemToCache));
+    if (!isControlled) {
+      setInternalValue(newValue);
+      if (typeof window !== "undefined" && cacheKey) {
+        const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes in milliseconds
+        const itemToCache: CachedQuery = { value: newValue, expiresAt };
+        localStorage.setItem(cacheKey, JSON.stringify(itemToCache));
+      }
     }
     if (propOnChange) {
-      propOnChange(e);
+      propOnChange(e); // Always call propOnChange if provided
     }
   };
 
@@ -116,7 +128,7 @@ function Input({
       {multiline ? (
         <textarea
           ref={textareaRef}
-          value={inputValue}
+          value={displayValue}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           className={cn(
@@ -133,7 +145,7 @@ function Input({
       ) : (
         <input
           type={type}
-          value={inputValue}
+          value={displayValue}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           className={cn(sharedClassName, "flex h-9 w-full")}
