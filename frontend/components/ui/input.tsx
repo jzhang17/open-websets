@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAgentRun } from "@/hooks/use-agent-run";
 
 // Define the common props and specific props for input and textarea
 interface BaseInputProps {
@@ -53,8 +54,28 @@ function Input({
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
 
+  const {
+    messages: agentMessages,
+    isLoading: agentIsLoading,
+    send: sendToAgent,
+    error: agentError,
+  } = useAgentRun({ threadId: null, initialInput: undefined });
+
+  React.useEffect(() => {
+    if (agentMessages.length > 0) {
+      console.log("Agent messages:", agentMessages);
+    }
+  }, [agentMessages]);
+
+  React.useEffect(() => {
+    if (agentError) {
+      console.error("Agent run error:", agentError);
+    }
+  }, [agentError]);
+
   const isControlled = propValue !== undefined;
   const displayValue = isControlled ? propValue : internalValue;
+  const loading = isLoading || agentIsLoading;
 
   // Effect to load from localStorage on initial mount (for uncontrolled mode)
   React.useEffect(() => {
@@ -107,12 +128,30 @@ function Input({
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
   ) => {
-    if (multiline && e.key === "Enter" && !e.shiftKey && !isLoading) {
+    if (multiline && e.key === "Enter" && !e.shiftKey && !loading) {
       e.preventDefault();
       buttonRef.current?.click();
     }
     if (propOnKeyDown) {
       propOnKeyDown(e);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const query = displayValue;
+    if (!query || !query.trim()) {
+      return;
+    }
+    if (loading) {
+      return;
+    }
+    sendToAgent(query);
+    if (!isControlled) {
+      setInternalValue("");
+      if (typeof window !== "undefined" && cacheKey) {
+        localStorage.removeItem(cacheKey);
+      }
     }
   };
 
@@ -124,7 +163,7 @@ function Input({
   );
 
   return (
-    <div className="relative flex items-center w-full">
+    <form onSubmit={handleSubmit} className="relative flex items-center w-full">
       {multiline ? (
         <textarea
           ref={textareaRef}
@@ -139,7 +178,7 @@ function Input({
           style={{
             minHeight: "48px",
           }}
-          disabled={isLoading || props.disabled}
+          disabled={loading || props.disabled}
           {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
         />
       ) : (
@@ -149,7 +188,7 @@ function Input({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           className={cn(sharedClassName, "flex h-9 w-full")}
-          disabled={isLoading || props.disabled}
+          disabled={loading || props.disabled}
           {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
         />
       )}
@@ -158,11 +197,11 @@ function Input({
         type="submit"
         className="absolute inset-y-0 right-0 flex items-center justify-center w-10 text-muted-foreground hover:text-foreground"
         aria-label="Submit"
-        disabled={isLoading || props.disabled}
+        disabled={loading || props.disabled}
       >
-        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "→"}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "→"}
       </button>
-    </div>
+    </form>
   );
 }
 

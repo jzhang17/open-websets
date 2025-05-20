@@ -71,6 +71,12 @@
 
 ## Agent Instructions
 
+All Next.js pages in `frontend/app/` should be server components by default. If
+client-side interactivity is required, implement it within individual
+components using the `"use client"` directive. Pages themselves should avoid
+`useState` or `useEffect` hooks and other client-only APIs unless explicitly
+needed.
+
 **Important:** Always update the "Project File Structure" section in this file (`AGENTS.md`) after making any changes to the project's directory or file structure.
 
 Before making any changes to the code, please ensure you have thoroughly reviewed the relevant documentation. The documentation for the libraries used in this project is located in the `documentations/` directory. These are Markdown files that have been crawled from the respective library websites.
