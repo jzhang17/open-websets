@@ -102,6 +102,14 @@ const AppStateAnnotation = Annotation.Root({
       typeof updateValue === "number" ? updateValue : currentState,
     default: () => 0,
   }),
+  finishedBatches: Annotation<number>({
+    reducer: (currentState, updateValue) => {
+      const current = typeof currentState === "number" ? currentState : 0;
+      const update = typeof updateValue === "number" ? updateValue : 0;
+      return current + update;
+    },
+    default: () => 0,
+  }),
 });
 
 type AppState = typeof AppStateAnnotation.State;
@@ -399,6 +407,12 @@ async function programmaticVerificationNode(
       error: `Verification tool execution failed during programmatic check: ${e.message}`,
       final_consistency: false,
     };
+  }
+  if (
+    updateToReturn.verificationResults?.final_consistency === true ||
+    (state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS
+  ) {
+    updateToReturn.finishedBatches = 1;
   }
   return updateToReturn;
 }
