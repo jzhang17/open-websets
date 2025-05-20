@@ -174,6 +174,25 @@ const extractEntities = new DynamicStructuredTool({
   },
 });
 
+/**
+ * Adds sequential indexes to a list of entities based on the current number of
+ * entities already stored.
+ *
+ * @param newEntities - Array of entities without indexes.
+ * @param currentCount - Number of entities currently stored.
+ * @returns Array of entities with `index`, `name`, and `url`.
+ */
+export function addEntityIndexes(
+  newEntities: { name: string; url: string }[],
+  currentCount: number,
+) {
+  return newEntities.map((e, i) => ({
+    index: currentCount + i,
+    name: e.name.trim(),
+    url: e.url.trim(),
+  }));
+}
+
 const exaSearchSchema = z.object({
   queries: z.array(z.string()).describe("A list of search queries."),
   type: z

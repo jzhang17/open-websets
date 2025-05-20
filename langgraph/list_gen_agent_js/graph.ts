@@ -4,7 +4,7 @@ import { Annotation, StateGraph } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
-import { TOOLS } from "./tools.js";
+import { TOOLS, addEntityIndexes } from "./tools.js";
 import { loadChatModel } from "./utils.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -124,7 +124,43 @@ async function listGenToolsNode(
     { messages: [messageForToolNode] },
     config,
   );
-  return { listGenMessages: toolExecutorOutput.messages };
+  const toolMessages = toolExecutorOutput.messages as ToolMessage[];
+  let newEntities: { name: string; url: string }[] | undefined = undefined;
+
+  for (const toolMessage of toolMessages) {
+    if (toolMessage.name === "extract_entities") {
+      if (typeof toolMessage.content === "string") {
+        try {
+          const toolOutput = JSON.parse(toolMessage.content);
+          if (toolOutput.entities && Array.isArray(toolOutput.entities)) {
+            newEntities = toolOutput.entities.filter(
+              (e: any) =>
+                typeof e === "object" &&
+                e !== null &&
+                typeof e.name === "string" &&
+                typeof e.url === "string",
+            );
+          }
+        } catch (e) {
+          console.error(
+            "Failed to parse entities from extract_entities tool message content:",
+            toolMessage.content,
+            e,
+          );
+        }
+      }
+    }
+  }
+
+  const update: Partial<AppStateUpdate> = {
+    listGenMessages: toolMessages,
+  };
+
+  if (newEntities && newEntities.length > 0) {
+    update.entities = addEntityIndexes(newEntities, state.entities.length);
+  }
+
+  return update;
 }
 
 // Define the function that calls the model
@@ -137,48 +173,6 @@ async function callModel(
 
   const model = (await loadChatModel(configuration.model)).bindTools(TOOLS);
 
-  let parsedEntitiesFromTool: Entity[] | undefined = undefined;
-  if (state.listGenMessages.length > 0) {
-    const lastMessageFromState =
-      state.listGenMessages[state.listGenMessages.length - 1];
-
-    // Check if it's a ToolMessage from extract_entities
-    if (
-      lastMessageFromState &&
-      lastMessageFromState.constructor.name === "ToolMessage"
-    ) {
-      const toolMessage = lastMessageFromState as ToolMessage;
-      if (toolMessage.name === "extract_entities") {
-        if (typeof toolMessage.content === "string") {
-          try {
-            const toolOutput = JSON.parse(toolMessage.content);
-            if (toolOutput.entities && Array.isArray(toolOutput.entities)) {
-              // Ensure all extracted entities are objects with name and url
-              parsedEntitiesFromTool = toolOutput.entities.filter(
-                (entity: any): entity is Entity =>
-                  typeof entity === "object" &&
-                  entity !== null &&
-                  typeof entity.name === "string" &&
-                  typeof entity.url === "string",
-              );
-            }
-          } catch (e) {
-            console.error(
-              "Failed to parse entities from extract_entities tool message content:",
-              toolMessage.content,
-              e,
-            );
-          }
-        } else {
-          console.warn(
-            "extract_entities tool message content was not a string:",
-            toolMessage.content,
-          );
-        }
-      }
-    }
-  }
-
   const response = await model.invoke([
     {
       role: "system",
@@ -187,19 +181,7 @@ async function callModel(
     ...state.listGenMessages,
   ]);
 
-  const update: AppStateUpdate = { listGenMessages: [response] };
-  if (parsedEntitiesFromTool && parsedEntitiesFromTool.length > 0) {
-    // Assign sequential indexes to each new entity before updating state
-    const baseIndex = state.entities.length;
-    const indexedEntities = parsedEntitiesFromTool.map((e, i) => ({
-      index: baseIndex + i,
-      name: e.name,
-      url: e.url,
-    }));
-    // The reducer for 'entities' expects the new array of items to add/concat.
-    update.entities = indexedEntities;
-  }
-  return update;
+  return { listGenMessages: [response] };
 }
 
 // Define the function that determines whether to continue or not
