@@ -298,7 +298,7 @@ function assignQualificationWorkers(state: ParentAppState) {
   const capacity = maxWorkers - activeBatches;
 
   if (capacity <= 0) {
-    return;
+    return [];
   }
 
   const sends: Send[] = [];
@@ -324,8 +324,7 @@ function assignQualificationWorkers(state: ParentAppState) {
       }),
     );
   }
-
-  return sends.length > 0 ? sends : undefined;
+  return sends; // Return Send[] (can be empty) or "__end__"
 }
 
 // After each parallel batch completes, determine whether to continue
@@ -357,6 +356,9 @@ parentWorkflow.addEdge("listGeneration" as any, "qualificationRouter" as any);
 parentWorkflow.addConditionalEdges(
   "qualificationRouter" as any,
   assignQualificationWorkers,
+  {
+    "__end__": "__end__"
+  }
 );
 
 parentWorkflow.addEdge(
