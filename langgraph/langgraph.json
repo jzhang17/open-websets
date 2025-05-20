@@ -6,5 +6,5 @@
     "agent": "./graph.ts:graph"
   },
   "env": ".env",
-  "auth": "./auth.mts"
+  "auth": "none"
 }
