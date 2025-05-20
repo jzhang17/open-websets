@@ -97,6 +97,11 @@ const AppStateAnnotation = Annotation.Root({
     reducer: (currentState, updateValue) => currentState.concat(updateValue), // Concat strategy
     default: () => [],
   }),
+  processedEntityCount: Annotation<number>({
+    reducer: (currentState, updateValue) =>
+      typeof updateValue === "number" ? updateValue : currentState,
+    default: () => 0,
+  }),
 });
 
 type AppState = typeof AppStateAnnotation.State;
