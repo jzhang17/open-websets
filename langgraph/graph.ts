@@ -296,6 +296,7 @@ function assignQualificationWorkers(state: ParentAppState) {
       new Send("entityQualification", {
         entitiesToQualify: batchEntities,
         qualMessages: [new HumanMessage({ content: qualInstruction })],
+        qualificationCriteria,
         processedEntityCount: end,
       }),
     );
@@ -342,7 +343,10 @@ parentWorkflow.addConditionalEdges(
   assignQualificationWorkers,
 );
 
-parentWorkflow.addEdge("entityQualification" as any, "qualificationMerge" as any);
+parentWorkflow.addEdge(
+  "entityQualification" as any,
+  "qualificationMerge" as any,
+);
 
 parentWorkflow.addConditionalEdges(
   "qualificationMerge" as any,
