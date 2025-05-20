@@ -77,7 +77,7 @@ interface ToolResult {
   toolName: string;
   result: {
     __cancelled?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
