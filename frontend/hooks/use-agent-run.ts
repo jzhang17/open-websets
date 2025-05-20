@@ -23,13 +23,11 @@ export interface AgentUpdate {
 
 export interface UseAgentRunProps {
   threadId: string | null;
-  assistantId: string; // Your LangGraph assistant ID or graph name
   initialInput?: string; // The initial message content to send
 }
 
 export function useAgentRun({
   threadId,
-  assistantId,
   initialInput,
 }: UseAgentRunProps) {
   const apiUrl = process.env.NEXT_PUBLIC_LANGGRAPH_API_URL;
@@ -54,7 +52,7 @@ export function useAgentRun({
     // CustomEventType: AgentCustomEvent;   // Example if needed
    }> ({
     apiUrl,
-    assistantId,
+    assistantId: "agent", // assistantId is now hardcoded from here
     threadId: threadId ?? undefined, // useStream expects string | undefined
     messagesKey: "parentMessages", // Crucial: matches your graph's state key for messages
     streamMode: "values", // Added streamMode
@@ -66,7 +64,6 @@ export function useAgentRun({
   useEffect(() => {
     if (
       initialInput &&
-      threadId &&
       submit &&
       !isLoading &&
       !initialInputSentRef.current
@@ -85,14 +82,11 @@ export function useAgentRun({
       );
       initialInputSentRef.current = true;
     }
-  }, [initialInput, threadId, submit, isLoading]);
+  }, [initialInput, submit, isLoading]);
 
   // Wrapper for submit to ensure it conforms to a simpler input structure if needed by components
   const send = (content: string) => {
-    if (!threadId) {
-      console.error("Cannot send message: threadId is not available.");
-      return;
-    }
+    // Removed threadId check to allow sending initial message to create a new thread
     const newMessage: LangGraphMessage = { type: "human", content, id: crypto.randomUUID() };
     submit(
       { parentMessages: [newMessage] },

@@ -12,19 +12,15 @@ export default function Home() {
   const router = useRouter();
 
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
-  const [currentQueryForSubmit, setCurrentQueryForSubmit] = useState<string | null>(null);
-  const [sentQueries, setSentQueries] = useState<Record<string, boolean>>({});
-
-  const assistantId = "agent";
 
   const {
     messages: agentMessages,
     isLoading: agentIsLoading,
     send: sendToAgent,
     error: agentError,
+    agentThreadId,
   } = useAgentRun({
     threadId: currentThreadId,
-    assistantId,
     initialInput: undefined,
   });
 
@@ -41,12 +37,11 @@ export default function Home() {
   }, [agentError]);
 
   useEffect(() => {
-    if (currentThreadId && currentQueryForSubmit && sendToAgent && !sentQueries[currentThreadId] && !agentIsLoading) {
-      console.log(`Sending query for thread ${currentThreadId}: ${currentQueryForSubmit}`);
-      sendToAgent(currentQueryForSubmit);
-      setSentQueries(prev => ({ ...prev, [currentThreadId]: true }));
+    if (agentThreadId && currentThreadId === null) {
+      setCurrentThreadId(agentThreadId);
+      router.push(`/${agentThreadId}`);
     }
-  }, [currentThreadId, currentQueryForSubmit, sendToAgent, sentQueries, agentIsLoading]);
+  }, [agentThreadId, currentThreadId, router]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,9 +57,7 @@ export default function Home() {
       return;
     }
 
-    const newUuid = crypto.randomUUID();
-    setCurrentQueryForSubmit(queryValue);
-    setCurrentThreadId(newUuid);
+    sendToAgent(queryValue);
   }
 
   return (
