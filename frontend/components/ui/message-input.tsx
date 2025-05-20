@@ -2,15 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowUp,
-  Info,
-  Loader2,
-  Mic,
-  Paperclip,
-  Square,
-  X,
-} from "lucide-react";
+import { ArrowUp, Info, Loader2, Mic, Paperclip, Square } from "lucide-react";
 import { omit } from "remeda";
 
 import { cn } from "@/lib/utils";
@@ -70,7 +62,9 @@ export function MessageInput({
   } = useAudioRecording({
     transcribeAudio,
     onTranscriptionComplete: (text) => {
-      props.onChange?.({ target: { value: text } } as any);
+      props.onChange?.({
+        target: { value: text },
+      } as unknown as React.ChangeEvent<HTMLTextAreaElement>);
     },
   });
 

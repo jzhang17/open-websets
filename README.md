@@ -44,3 +44,18 @@ Preview the LangGraph agents with:
 cd langgraph
 npx @langchain/langgraph-cli@latest dev
 ```
+
+## Development
+
+Run the frontend linter:
+
+```bash
+npm --prefix frontend run lint
+```
+
+Format all TypeScript and Markdown files:
+
+```bash
+npx prettier --write "frontend/**/*.{ts,tsx,md}" "langgraph/**/*.{ts,md}"
+```
+

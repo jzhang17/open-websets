@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Building2, BookOpen, Newspaper } from "lucide-react";
@@ -9,17 +8,13 @@ import { AppHeader } from "@/components/AppHeader";
 import { useAgentRun } from "@/hooks/use-agent-run";
 
 export default function Home() {
-  const router = useRouter();
-
-  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
-
   const {
     messages: agentMessages,
     isLoading: agentIsLoading,
     send: sendToAgent,
     error: agentError,
   } = useAgentRun({
-    threadId: currentThreadId,
+    threadId: null,
     initialInput: undefined,
   });
 
