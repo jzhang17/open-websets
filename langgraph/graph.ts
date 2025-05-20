@@ -1,5 +1,5 @@
 import { BaseMessage } from "@langchain/core/messages";
-import { Annotation, StateGraph, START } from "@langchain/langgraph";
+import { Annotation, StateGraph, START, Send } from "@langchain/langgraph";
 import {
   graph as listGenerationGraph,
   EntityType as ListGenEntityType,
@@ -61,7 +61,11 @@ const ParentAppStateAnnotation = Annotation.Root({
     default: () => [],
   }),
   processedEntityCount: Annotation<number>({
-    reducer: (_currentState, updateValue) => updateValue,
+    reducer: (currentState, updateValue) => {
+      const current = typeof currentState === "number" ? currentState : 0;
+      const update = typeof updateValue === "number" ? updateValue : 0;
+      return Math.max(current, update);
+    },
     default: () => 0,
   }),
   // Add annotations for subgraph messages
@@ -264,87 +268,48 @@ function routeAgentModelOutput(state: any) {
   return "listGeneration";
 }
 
-// New node function for entity processing
-async function entityProcessingNode(
-  state: ParentAppState,
-  _config?: RunnableConfig,
-): Promise<Partial<ParentAppStateUpdate>> {
+// Router that fans out qualification work in parallel
+function assignQualificationWorkers(state: ParentAppState) {
   const { entities, processedEntityCount = 0, qualificationCriteria } = state;
-  const batchSize = 25;
+  const batchSize = 15;
+  const maxWorkers = 4;
 
-  let newParentMessages: BaseMessage[] = []; // Messages for parentMessages history
+  if (!entities || processedEntityCount >= entities.length) {
+    return "__end__";
+  }
 
-  if (!entities || entities.length === 0) {
-    newParentMessages.push(
-      new AIMessage(
-        "No entities were generated to qualify. Skipping qualification.",
-      ),
+  const remaining = entities.length - processedEntityCount;
+  const numBatches = Math.min(maxWorkers, Math.ceil(remaining / batchSize));
+  const sends: Send[] = [];
+
+  for (let i = 0; i < numBatches; i++) {
+    const start = processedEntityCount + i * batchSize;
+    const end = Math.min(start + batchSize, entities.length);
+    const batchEntities = entities.slice(start, end).map((e) => ({
+      index: e.index,
+      name: e.name,
+      url: e.url,
+    }));
+    const batchNames = batchEntities.map((e) => e.name);
+    const qualInstruction = `Please qualify the following entities: ${batchNames.join(", ")}. The qualification criteria are: ${qualificationCriteria}`;
+    sends.push(
+      new Send("entityQualification", {
+        entitiesToQualify: batchEntities,
+        qualMessages: [new HumanMessage({ content: qualInstruction })],
+        processedEntityCount: end,
+      }),
     );
-    return {
-      entitiesToQualify: [],
-      processedEntityCount: 0,
-      parentMessages: newParentMessages,
-      qualMessages: [], // Clear/initialize qualMessages
-    };
   }
 
-  if (processedEntityCount >= entities.length) {
-    newParentMessages.push(
-      new AIMessage("All entities have been processed for qualification."),
-    );
-    return {
-      entitiesToQualify: [],
-      parentMessages: newParentMessages,
-      qualMessages: [], // Clear/initialize qualMessages
-      // processedEntityCount remains at entities.length
-    };
-  }
-
-  const nextBatchEndIndex = Math.min(
-    processedEntityCount + batchSize,
-    entities.length,
-  );
-  const batchToQualifyObjects = entities.slice(
-    processedEntityCount,
-    nextBatchEndIndex,
-  );
-  const batchEntitiesToQualify = batchToQualifyObjects.map((entity: Entity) => ({
-    index: entity.index,
-    name: entity.name,
-    url: entity.url,
-  }));
-  const batchEntityNamesToQualify = batchEntitiesToQualify.map((e) => e.name);
-
-  newParentMessages.push(
-    new AIMessage(
-      `Preparing batch of ${batchEntityNamesToQualify.length} entity names for qualification (processing ${processedEntityCount + 1}-${nextBatchEndIndex} of ${entities.length} total).`,
-    ),
-  );
-
-  const update: Partial<ParentAppStateUpdate> = {
-    entitiesToQualify: batchEntitiesToQualify,
-    processedEntityCount: nextBatchEndIndex,
-    parentMessages: newParentMessages,
-  };
-
-  if (batchEntityNamesToQualify.length > 0) {
-    const qualInstruction = `Please qualify the following entities: ${batchEntityNamesToQualify.join(", ")}. The qualification criteria are: ${qualificationCriteria}`;
-    update.qualMessages = [new HumanMessage({ content: qualInstruction })];
-  } else {
-    update.qualMessages = []; // Should not happen if entities exist, but good for consistency
-  }
-
-  return update;
+  return sends;
 }
 
-// New conditional routing function after entityProcessingNode
-function routeAfterEntityProcessing(state: any) {
-  if (state.entitiesToQualify && state.entitiesToQualify.length > 0) {
-    // There's a batch prepared by entityProcessingNode
-    return "entityQualification";
+// After each parallel batch completes, determine whether to continue
+function continueQualification(state: ParentAppState) {
+  if (state.processedEntityCount >= state.entities.length) {
+    return "__end__";
   }
-  // No more batches to process, or no entities to begin with
-  return "__end__";
+  return "qualificationRouter";
 }
 
 // Build parent workflow
@@ -359,8 +324,10 @@ parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 
 // Add subgraph nodes
 parentWorkflow.addNode("listGeneration", listGenerationGraph);
-parentWorkflow.addNode("entityProcessing", entityProcessingNode);
+// Router node for spawning qualification workers
+parentWorkflow.addNode("qualificationRouter", async () => ({}));
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);
+parentWorkflow.addNode("qualificationMerge", async () => ({}));
 
 // Define workflow edges
 parentWorkflow.addEdge(START, "agent" as any);
@@ -368,14 +335,19 @@ parentWorkflow.addConditionalEdges("agent" as any, routeAgentModelOutput);
 parentWorkflow.addEdge("agentTools" as any, "agent" as any);
 
 // Modified and new edges for entity processing loop
-parentWorkflow.addEdge("listGeneration" as any, "entityProcessing" as any);
+parentWorkflow.addEdge("listGeneration" as any, "qualificationRouter" as any);
 
 parentWorkflow.addConditionalEdges(
-  "entityProcessing" as any,
-  routeAfterEntityProcessing,
+  "qualificationRouter" as any,
+  assignQualificationWorkers,
 );
 
-parentWorkflow.addEdge("entityQualification" as any, "entityProcessing" as any);
+parentWorkflow.addEdge("entityQualification" as any, "qualificationMerge" as any);
+
+parentWorkflow.addConditionalEdges(
+  "qualificationMerge" as any,
+  continueQualification,
+);
 
 // Compile and export the workflow
 export const graph = parentWorkflow.compile();
