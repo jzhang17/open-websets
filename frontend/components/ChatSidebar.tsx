@@ -18,11 +18,27 @@ interface ChatSidebarProps {
   uuid: string;
   isOpen: boolean;
   toggleSidebar: () => void;
+  onNewThreadIdGenerated?: (threadId: string) => void;
 }
 
-export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {
+export function ChatSidebar({
+  uuid,
+  isOpen,
+  toggleSidebar,
+  onNewThreadIdGenerated,
+}: ChatSidebarProps) {
   // Use LangGraph agent hook for streaming messages and send functionality
-  const { messages: agentMessages, isLoading: isGenerating, send: sendToAgent, error: agentError, stop: stopAgent } = useAgentRun({ threadId: uuid, initialInput: undefined });
+  const {
+    messages: agentMessages,
+    isLoading: isGenerating,
+    send: sendToAgent,
+    error: agentError,
+    stop: stopAgent,
+  } = useAgentRun({
+    threadId: uuid,
+    initialInput: undefined,
+    onThreadId: onNewThreadIdGenerated,
+  });
   const [input, setInput] = useState("");
 
   const handleInputChange = (
