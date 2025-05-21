@@ -3,42 +3,22 @@ import { MessageInput } from "@/components/ui/message-input";
 import { MessageList } from "@/components/ui/message-list";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
 import { useState } from "react"; // Keep for input state
-import { useAgentRun } from "@/hooks/use-agent-run";
-
-// Define the Message interface, matching the one from shadcn-chatbot-kit
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt?: Date;
-  attachments?: File[];
-}
+import { useAgentRunCtx } from "@/app/providers/agent-run-provider";
 
 interface ChatSidebarProps {
-  uuid: string;
   isOpen: boolean;
   toggleSidebar: () => void;
-  onNewThreadIdGenerated?: (threadId: string) => void;
 }
 
 export function ChatSidebar({
-  uuid,
   isOpen,
   toggleSidebar,
-  onNewThreadIdGenerated,
 }: ChatSidebarProps) {
-  // Use LangGraph agent hook for streaming messages and send functionality
   const {
     messages: agentMessages,
     isLoading: isGenerating,
     send: sendToAgent,
-    error: agentError,
-    stop: stopAgent,
-  } = useAgentRun({
-    threadId: uuid,
-    initialInput: undefined,
-    onThreadId: onNewThreadIdGenerated,
-  });
+  } = useAgentRunCtx();
   const [input, setInput] = useState("");
 
   const handleInputChange = (

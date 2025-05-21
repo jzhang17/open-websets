@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAgentRun } from "@/hooks/use-agent-run";
+import { useAgentRunCtx } from "@/app/providers/agent-run-provider";
 import { useRouter } from "next/navigation";
 
 // Define the common props and specific props for input and textarea
@@ -59,18 +59,18 @@ function Input({
   const [localLoading, setLocalLoading] = React.useState(false);
 
   const {
+    threadId,
     messages: agentMessages,
     isLoading: agentIsLoading,
     send: sendToAgent,
     error: agentError,
-  } = useAgentRun({
-    threadId: null,
-    initialInput: undefined,
-    onThreadId: (newThreadId: string) => {
-      // Redirect to page with threadId in URL
-      router.push(`/${newThreadId}`);
-    },
-  });
+  } = useAgentRunCtx();
+
+  React.useEffect(() => {
+    if (threadId) {
+      router.push(`/${threadId}`);
+    }
+  }, [threadId, router]);
 
   React.useEffect(() => {
     if (agentMessages.length > 0) {

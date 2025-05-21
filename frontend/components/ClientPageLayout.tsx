@@ -1,35 +1,18 @@
 "use client";
 
-import { useState, ReactNode, useEffect, useCallback } from "react";
+import { useState, ReactNode } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
-import { useRouter } from "next/navigation";
 
 interface ClientPageLayoutProps {
-  uuid: string;
   children: ReactNode;
 }
 
-export function ClientPageLayout({ uuid, children }: ClientPageLayoutProps) {
+export function ClientPageLayout({ children }: ClientPageLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentThreadId, setCurrentThreadId] = useState<string>(uuid);
-  const router = useRouter();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  useEffect(() => {
-    if (uuid !== currentThreadId) {
-      setCurrentThreadId(uuid);
-    }
-  }, [uuid, currentThreadId]);
-
-  const handleNewThreadId = useCallback((newThreadId: string) => {
-    if (newThreadId && newThreadId !== currentThreadId) {
-      setCurrentThreadId(newThreadId);
-      router.replace(`/${newThreadId}`);
-    }
-  }, [currentThreadId, router]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -59,10 +42,8 @@ export function ClientPageLayout({ uuid, children }: ClientPageLayoutProps) {
       </div>
 
       <ChatSidebar
-        uuid={currentThreadId}
         isOpen={isSidebarOpen}
         toggleSidebar={toggleSidebar}
-        onNewThreadIdGenerated={handleNewThreadId}
       />
     </div>
   );
