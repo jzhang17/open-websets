@@ -30,13 +30,15 @@ export function useAgentRun({
   threadId,
   initialInput,
 }: UseAgentRunProps) {
-  const apiUrl = "/api/langgraph";
-
-  if (!apiUrl) {
-    throw new Error(
-      "NEXT_PUBLIC_LANGGRAPH_API_URL is not set in environment variables.",
-    );
+  // Construct the full API URL for client-side execution
+  let apiUrl = "/api/langgraph";
+  if (typeof window !== "undefined") {
+    apiUrl = `${window.location.origin}/api/langgraph`;
   }
+
+  // NEXT_PUBLIC_LANGGRAPH_API_URL is no longer used directly here,
+  // but the proxy route will use LANGGRAPH_API_URL and LANGSMITH_API_KEY
+  // from environment variables on the server side.
 
   // Type for the `configurable` property in submit options, if you were to use it.
   // type AgentConfigurable = Record<string, unknown>; 

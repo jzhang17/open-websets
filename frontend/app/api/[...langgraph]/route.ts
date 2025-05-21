@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
         "X-Api-Key": process.env.LANGSMITH_API_KEY!, // inject secret
       },
       body   : req.body,
-      // duplex: "half" // Required for streaming Request body in Node.js 18+ / Next.js Edge Functions
-    });
+      duplex: "half" // Required for streaming Request body in Node.js 18+ / Next.js Edge Functions
+    } as any); // Cast to any to bypass TypeScript error for duplex
     
   // Ensure you handle the response body correctly for streaming
   // If the response is streamed, you need to pipe it through
