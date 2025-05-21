@@ -17,6 +17,11 @@
 │   │   └── providers/
 │   │       └── agent-run-provider.tsx
 │   ├── components/
+│   │   ├── AppHeader.tsx
+│   │   ├── ChatSidebar.tsx
+│   │   ├── ClientPageLayout.tsx
+│   │   ├── HomeLink.tsx
+│   │   └── ui/
 │   ├── components.json
 │   ├── eslint.config.mjs
 │   ├── lib/
