@@ -333,7 +333,17 @@ parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 
 // Subgraphs handle list generation and entity qualification
 parentWorkflow.addNode("listGeneration", listGenerationGraph);
-parentWorkflow.addNode("qualificationRouter", async () => ({}));
+parentWorkflow.addNode("qualificationRouter", async (state: ParentAppState) => {
+  // Check if all entities are processed and emit a completion message
+  const batchSize = 15;
+  const totalEntities = state.entities?.length ?? 0;
+  const finished = (state.finishedBatches * batchSize) >= totalEntities;
+  if (finished) {
+    const doneMsg = new AIMessage({ content: "The search and qualification process is complete." });
+    return { parentMessages: [doneMsg] };
+  }
+  return {};
+});
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);
 
 // Workflow edges
