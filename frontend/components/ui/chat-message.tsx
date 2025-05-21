@@ -15,12 +15,12 @@ import { FilePreview } from "@/components/ui/file-preview";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 
 const chatBubbleVariants = cva(
-  "group/message relative break-words rounded-lg p-3 text-sm sm:max-w-[70%]",
+  "group/message relative break-words rounded-lg p-3 text-sm",
   {
     variants: {
       isUser: {
-        true: "bg-primary text-primary-foreground",
-        false: "bg-muted text-foreground",
+        true: "bg-primary text-primary-foreground sm:max-w-[70%]",
+        false: "bg-muted text-foreground sm:max-w-[85%]",
       },
       animation: {
         none: "",
@@ -147,6 +147,35 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     minute: "2-digit",
   });
 
+  let renderableTopLevelContent: string;
+  // Handle string content that might be JSON with qualificationCriteria
+  if (typeof content === 'string') {
+    let parsedValue: unknown;
+    try {
+      parsedValue = JSON.parse(content);
+    } catch {
+      parsedValue = null;
+    }
+    if (
+      parsedValue &&
+      typeof parsedValue === 'object' &&
+      'qualificationCriteria' in (parsedValue as any) &&
+      typeof (parsedValue as any).qualificationCriteria === 'string'
+    ) {
+      renderableTopLevelContent = (parsedValue as any).qualificationCriteria;
+    } else {
+      renderableTopLevelContent = content;
+    }
+  } else if (content && typeof content === 'object' && (content as any).type === 'text' && typeof (content as any).text === 'string') {
+    renderableTopLevelContent = (content as any).text;
+  } else {
+    console.warn(
+      `ChatMessage's 'content' prop received an unexpected value for direct rendering. Got:`,
+      content
+    );
+    renderableTopLevelContent = "";
+  }
+
   if (isUser) {
     return (
       <div
@@ -161,7 +190,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         ) : null}
 
         <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-          <MarkdownRenderer>{content}</MarkdownRenderer>
+          <MarkdownRenderer>{renderableTopLevelContent}</MarkdownRenderer>
         </div>
 
         {showTimeStamp && createdAt ? (
@@ -233,7 +262,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   return (
     <div className={cn("flex flex-col", isUser ? "items-end" : "items-start")}>
       <div className={cn(chatBubbleVariants({ isUser, animation }))}>
-        <MarkdownRenderer>{content}</MarkdownRenderer>
+        <MarkdownRenderer>{renderableTopLevelContent}</MarkdownRenderer>
         {actions ? (
           <div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
             {actions}
@@ -266,7 +295,7 @@ const ReasoningBlock = ({ part }: { part: ReasoningPart }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="mb-2 flex flex-col items-start sm:max-w-[70%]">
+    <div className="mb-2 flex flex-col items-start sm:max-w-[85%]">
       <Collapsible
         open={isOpen}
         onOpenChange={setIsOpen}

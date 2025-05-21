@@ -1,6 +1,6 @@
 import { useStream, type UseStreamOptions } from "@langchain/langgraph-sdk/react";
 import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk"; // Renaming to avoid conflict if you have a local Message type
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient, type QueryKey, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
 
 // Define the structure of the state your LangGraph agent expects and returns.
@@ -25,12 +25,14 @@ export interface AgentUpdate {
 export interface UseAgentRunProps {
   threadId: string | null;
   initialInput?: string; // The initial message content to send
+  onThreadId?: (threadId: string) => void; // Callback when a new threadId is returned
 }
 
 // Renamed original hook: This hook directly manages the LangGraph stream.
 function useLangGraphStreamAndSend({
   threadId,
   initialInput,
+  onThreadId,
 }: UseAgentRunProps) {
   // Construct the full API URL for client-side execution
   let apiUrl = "/api/langgraph";
@@ -38,15 +40,14 @@ function useLangGraphStreamAndSend({
     apiUrl = `${window.location.origin}/api/langgraph`;
   }
 
-  const streamHookResult = useStream<AgentState, {
-    UpdateType: AgentUpdate;
-   }> ({
+  const streamHookResult = useStream<AgentState, { UpdateType: AgentUpdate }>({
     apiUrl,
     assistantId: "agent", // assistantId is now hardcoded from here
     threadId: threadId ?? undefined, // useStream expects string | undefined
     messagesKey: "parentMessages", // Crucial: matches your graph's state key for messages
     streamMode: "updates", // Added streamMode
-  } as UseStreamOptions<AgentState, { UpdateType: AgentUpdate }>) ; // Cast to UseStreamOptions
+    onThreadId, // Propagate threadId callback to notify when new thread is created
+  } as UseStreamOptions<AgentState, { UpdateType: AgentUpdate }>);
 
   const { submit, messages, isLoading, error, stop } = streamHookResult;
   const initialInputSentRef = useRef(false);
@@ -122,11 +123,11 @@ const processStreamError = (error: unknown): Error | null => {
 
 // New useAgentRun hook wrapped with React Query
 export function useAgentRun(props: UseAgentRunProps) {
-  const { threadId, initialInput } = props;
+  const { threadId, initialInput, onThreadId } = props;
   const queryClient = useQueryClient();
 
-  // Define the query key based on the threadId
-  const queryKey: QueryKey = ['agentRun', threadId];
+  // Define a stable query key based on threadId
+  const queryKey = useMemo<QueryKey>(() => ['agentRun', threadId], [threadId]);
 
   // Use the renamed hook to manage the actual stream and interactions.
   // Its state will be synced to React Query's cache.
@@ -136,7 +137,7 @@ export function useAgentRun(props: UseAgentRunProps) {
     error: streamError, // This is Error | undefined
     send: streamSend,
     stop: streamStop,
-  } = useLangGraphStreamAndSend({ threadId, initialInput });
+  } = useLangGraphStreamAndSend({ threadId, initialInput, onThreadId });
 
   // Effect to update React Query cache when the stream's state changes
   useEffect(() => {

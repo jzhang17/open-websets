@@ -7,10 +7,13 @@ import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/ui/copy-button";
 
 interface MarkdownRendererProps {
-  children: string;
+  children: React.ReactNode;
 }
 
 export function MarkdownRenderer({ children }: MarkdownRendererProps) {
+  if (typeof children !== 'string') {
+    return <div className="space-y-3">{children}</div>;
+  }
   return (
     <div className="space-y-3">
       <Markdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>

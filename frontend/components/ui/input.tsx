@@ -4,6 +4,7 @@ import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAgentRun } from "@/hooks/use-agent-run";
+import { useRouter } from "next/navigation";
 
 // Define the common props and specific props for input and textarea
 interface BaseInputProps {
@@ -54,12 +55,21 @@ function Input({
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
 
+  const router = useRouter();
+
   const {
     messages: agentMessages,
     isLoading: agentIsLoading,
     send: sendToAgent,
     error: agentError,
-  } = useAgentRun({ threadId: null, initialInput: undefined });
+  } = useAgentRun({
+    threadId: null,
+    initialInput: undefined,
+    onThreadId: (newThreadId: string) => {
+      // Redirect to page with threadId in URL
+      router.push(`/${newThreadId}`);
+    },
+  });
 
   React.useEffect(() => {
     if (agentMessages.length > 0) {

@@ -2,7 +2,8 @@
 import { MessageInput } from "@/components/ui/message-input";
 import { MessageList } from "@/components/ui/message-list";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
-import { useState } from "react"; // Keep for messages and input state
+import { useState } from "react"; // Keep for input state
+import { useAgentRun } from "@/hooks/use-agent-run";
 
 // Define the Message interface, matching the one from shadcn-chatbot-kit
 interface Message {
@@ -20,13 +21,9 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: "1", role: "assistant", content: "Hello! How can I help you today?" },
-    { id: "2", role: "user", content: "I need information about this UUID." },
-    { id: "3", role: "assistant", content: `Certainly! The UUID is ${uuid}.` },
-  ]);
+  // Use LangGraph agent hook for streaming messages and send functionality
+  const { messages: agentMessages, isLoading: isGenerating, send: sendToAgent, error: agentError, stop: stopAgent } = useAgentRun({ threadId: uuid, initialInput: undefined });
   const [input, setInput] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLTextAreaElement> | string,
@@ -39,32 +36,9 @@ export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {
   };
 
   const handleSubmit = async () => {
-    if (!input.trim()) return;
-
-    const userMessage: Message = {
-      id: String(Date.now()),
-      role: "user",
-      content: input,
-      createdAt: new Date(),
-    };
-    setMessages((prevMessages) => [...prevMessages, userMessage]);
+    if (!input.trim() || isGenerating) return;
+    sendToAgent(input);
     setInput("");
-    setIsGenerating(true);
-
-    // Simulate assistant response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: String(Date.now() + 1),
-        role: "assistant",
-        content: `Received your message about: \"${userMessage.content.substring(
-          0,
-          30,
-        )}...\"`,
-        createdAt: new Date(),
-      };
-      setMessages((prevMessages) => [...prevMessages, assistantMessage]);
-      setIsGenerating(false);
-    }, 1000);
   };
 
   return (
@@ -86,7 +60,14 @@ export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {
             <SidebarToggle isOpen={isOpen} toggle={toggleSidebar} />
           </div>
           <div className="flex-grow overflow-y-auto min-h-0">
-            <MessageList messages={messages} isTyping={isGenerating} />
+            <MessageList
+              messages={agentMessages.map((msg) => ({
+                id: msg.id,
+                role: msg.type === "human" ? "user" : "assistant",
+                content: msg.content,
+              }))}
+              isTyping={isGenerating}
+            />
           </div>
           <div className="border-t border-sidebar-border pt-4 mt-4">
             <form
