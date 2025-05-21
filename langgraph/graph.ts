@@ -9,8 +9,6 @@ import {
   graph as entityQualificationGraph,
   type QualificationItem as EQQualificationItem,
 } from "./entity_qualification_agent_js/graph.js";
-
-// New imports for the root agent
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
@@ -21,10 +19,8 @@ import { fileURLToPath } from "url";
 import { AIMessage, ToolMessage, HumanMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 
-// Define the structure for an entity by extending the imported one
+// Entities and qualification items mirror the types used in the subgraphs
 interface Entity extends ListGenEntityInterface {}
-
-// Alias for imported qualification item type
 type QualificationItem = EQQualificationItem;
 
 // Define the parent graph's state structure
@@ -41,12 +37,10 @@ const ParentAppStateAnnotation = Annotation.Root({
     reducer: (_currentState, updateValue) => updateValue,
     default: () => "",
   }),
-  // Use the imported ListGenEntityType
   entityTypes: Annotation<ListGenEntityType[]>({
     reducer: (_currentState, updateValue) => updateValue,
     default: () => [],
   }),
-  // This now uses the aliased QualificationItem type from EQQualificationItem
   qualificationSummary: Annotation<QualificationItem[]>({
     reducer: (currentState, updateValue) => {
       // Ensure both are arrays before concatenating
@@ -76,7 +70,6 @@ const ParentAppStateAnnotation = Annotation.Root({
     },
     default: () => 0,
   }),
-  // Add annotations for subgraph messages
   listGenMessages: Annotation<BaseMessage[]>({
     reducer: (_currentState, updateValue) => updateValue,
     default: () => [],
@@ -91,7 +84,7 @@ const ParentAppStateAnnotation = Annotation.Root({
 type ParentAppState = typeof ParentAppStateAnnotation.State;
 type ParentAppStateUpdate = typeof ParentAppStateAnnotation.Update;
 
-// Wrapper for the parent graph's ToolNode
+// Executes any tools requested by the parent agent
 async function parentAgentToolsNode(
   state: ParentAppState,
   config?: RunnableConfig,
@@ -232,7 +225,7 @@ async function callAgentModel(
 
   const update: Partial<ParentAppStateUpdate> = { parentMessages: [response] };
 
-  // Check if this response will lead to a subgraph directly (e.g., listGeneration)
+  // If the model did not request a tool, feed the output into the list generation graph
   const hasToolCalls =
     (response as AIMessage)?.tool_calls?.length ||
     0 ||
@@ -276,7 +269,8 @@ function routeAgentModelOutput(state: any) {
   return "listGeneration";
 }
 
-// Router that fans out qualification work in parallel
+// Split the entity list into batches and issue Send instructions for each batch.
+// Returning multiple Send objects makes LangGraph run those subgraphs concurrently.
 function assignQualificationWorkers(state: ParentAppState) {
   const {
     entities,
@@ -327,8 +321,6 @@ function assignQualificationWorkers(state: ParentAppState) {
   return sends; // Return Send[] (can be empty) or "__end__"
 }
 
-// After each parallel batch completes, determine whether to continue
-
 // Build parent workflow
 const parentWorkflow = new StateGraph(
   ParentAppStateAnnotation,
@@ -339,18 +331,16 @@ const parentWorkflow = new StateGraph(
 parentWorkflow.addNode("agent", callAgentModel);
 parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 
-// Add subgraph nodes
+// Subgraphs handle list generation and entity qualification
 parentWorkflow.addNode("listGeneration", listGenerationGraph);
-// Router node for spawning qualification workers
 parentWorkflow.addNode("qualificationRouter", async () => ({}));
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);
 
-// Define workflow edges
+// Workflow edges
 parentWorkflow.addEdge(START, "agent" as any);
 parentWorkflow.addConditionalEdges("agent" as any, routeAgentModelOutput);
 parentWorkflow.addEdge("agentTools" as any, "agent" as any);
-
-// Modified and new edges for entity processing loop
+// Qualification loop
 parentWorkflow.addEdge("listGeneration" as any, "qualificationRouter" as any);
 
 parentWorkflow.addConditionalEdges(
@@ -368,5 +358,3 @@ parentWorkflow.addEdge(
 
 // Compile and export the workflow
 export const graph = parentWorkflow.compile();
-
-// End of parent graph definition
