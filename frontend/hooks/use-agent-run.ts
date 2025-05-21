@@ -1,6 +1,7 @@
 import { useStream, type UseStreamOptions } from "@langchain/langgraph-sdk/react";
-import type { Message as LangGraphMessage, Checkpoint } from "@langchain/langgraph-sdk"; // Renaming to avoid conflict if you have a local Message type
-import { useEffect, useRef } from "react";
+import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk"; // Renaming to avoid conflict if you have a local Message type
+import { useEffect, useRef, useCallback } from "react";
+import { useQuery, useQueryClient, type QueryKey, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
 
 // Define the structure of the state your LangGraph agent expects and returns.
 // Based on your graph.ts, parentMessages is an array of BaseMessage.
@@ -26,7 +27,8 @@ export interface UseAgentRunProps {
   initialInput?: string; // The initial message content to send
 }
 
-export function useAgentRun({
+// Renamed original hook: This hook directly manages the LangGraph stream.
+function useLangGraphStreamAndSend({
   threadId,
   initialInput,
 }: UseAgentRunProps) {
@@ -36,28 +38,14 @@ export function useAgentRun({
     apiUrl = `${window.location.origin}/api/langgraph`;
   }
 
-  // NEXT_PUBLIC_LANGGRAPH_API_URL is no longer used directly here,
-  // but the proxy route will use LANGGRAPH_API_URL and LANGSMITH_API_KEY
-  // from environment variables on the server side.
-
-  // Type for the `configurable` property in submit options, if you were to use it.
-  // type AgentConfigurable = Record<string, unknown>; 
-  // Type for the `interrupt` value, if you were to use interrupts.
-  // type AgentInterrupt = unknown;
-  // Type for custom events, if you were to use them.
-  // type AgentCustomEvent = unknown;
-
   const streamHookResult = useStream<AgentState, {
     UpdateType: AgentUpdate;
-    // ConfigurableType: AgentConfigurable; // Example if needed
-    // InterruptType: AgentInterrupt;       // Example if needed
-    // CustomEventType: AgentCustomEvent;   // Example if needed
    }> ({
     apiUrl,
     assistantId: "agent", // assistantId is now hardcoded from here
     threadId: threadId ?? undefined, // useStream expects string | undefined
     messagesKey: "parentMessages", // Crucial: matches your graph's state key for messages
-    streamMode: "values", // Added streamMode
+    streamMode: "updates", // Added streamMode
   } as UseStreamOptions<AgentState, { UpdateType: AgentUpdate }>) ; // Cast to UseStreamOptions
 
   const { submit, messages, isLoading, error, stop } = streamHookResult;
@@ -87,8 +75,7 @@ export function useAgentRun({
   }, [initialInput, submit, isLoading]);
 
   // Wrapper for submit to ensure it conforms to a simpler input structure if needed by components
-  const send = (content: string) => {
-    // Removed threadId check to allow sending initial message to create a new thread
+  const send = useCallback((content: string) => {
     const newMessage: LangGraphMessage = { type: "human", content, id: crypto.randomUUID() };
     submit(
       { parentMessages: [newMessage] },
@@ -99,19 +86,104 @@ export function useAgentRun({
         },
       },
     );
-  };
+  }, [submit]);
 
   return {
     messages: messages ?? [], // Ensure messages is always an array
     isLoading,
-    error,
+    error, // This is Error | undefined from useStream
     send, // Expose the wrapped submit function
     stop,
-    // activeThreadId: checkpoint?.thread_id, // Reverted: Removed activeThreadId
-    // You can also expose the raw `submit` from useStream if more complex updates are needed:
-    // rawSubmit: submit,
-    // And other properties like `interrupt`, `getMessagesMetadata`, etc.
-    // streamHook: streamHookResult, // to access all properties of useStream
+    // streamHook: streamHookResult, // can be exposed if needed for more advanced scenarios
+  };
+}
+
+// Type for the data stored in React Query
+interface AgentQueryData {
+  messages: LangGraphMessage[];
+  isLoading: boolean;
+  error: Error | null;
+}
+
+// Helper function to process stream error into a consistent Error | null type
+const processStreamError = (error: unknown): Error | null => {
+  if (!error) return null;
+  if (error instanceof Error) return error;
+  // Attempt to create an Error from common error-like object structures
+  if (typeof error === 'object' && error !== null) {
+    if ('message' in error && typeof (error as { message: unknown }).message === 'string') {
+      return new Error((error as { message: string }).message);
+    }
+    return new Error(JSON.stringify(error)); // Fallback for other objects
+  }
+  if (typeof error === 'string') return new Error(error);
+  return new Error('An unknown error occurred');
+};
+
+// New useAgentRun hook wrapped with React Query
+export function useAgentRun(props: UseAgentRunProps) {
+  const { threadId, initialInput } = props;
+  const queryClient = useQueryClient();
+
+  // Define the query key based on the threadId
+  const queryKey: QueryKey = ['agentRun', threadId];
+
+  // Use the renamed hook to manage the actual stream and interactions.
+  // Its state will be synced to React Query's cache.
+  const {
+    messages: streamMessages,
+    isLoading: streamIsLoading,
+    error: streamError, // This is Error | undefined
+    send: streamSend,
+    stop: streamStop,
+  } = useLangGraphStreamAndSend({ threadId, initialInput });
+
+  // Effect to update React Query cache when the stream's state changes
+  useEffect(() => {
+    queryClient.setQueryData<AgentQueryData>(queryKey, {
+      messages: streamMessages ?? [],
+      isLoading: streamIsLoading,
+      error: processStreamError(streamError),
+    });
+  }, [streamMessages, streamIsLoading, streamError, queryClient, queryKey]);
+
+  // Use useQuery to read the synchronized state from the cache.
+  const { data, isLoading, error } = useQuery<AgentQueryData, Error, AgentQueryData, QueryKey>({
+    queryKey,
+    queryFn: async (): Promise<AgentQueryData> => {
+      // This queryFn reflects the current state from the underlying stream hook.
+      // It's primarily for initial data population if not already in cache or for refetch scenarios.
+      return {
+        messages: streamMessages ?? [],
+        isLoading: streamIsLoading,
+        error: processStreamError(streamError),
+      };
+    },
+    // Enable the query if threadId is present (string) or null (for new threads).
+    // The underlying useLangGraphStreamAndSend handles null threadId by passing undefined to useStream.
+    enabled: true,
+    staleTime: Infinity, // Data is "live" from the stream, so never stale in React Query terms.
+    gcTime: Infinity, // Keep data in cache as long as components might be interested.
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Data is actively pushed; initialData or queryFn's first run handles mount.
+    refetchOnReconnect: false,
+    // initialData provides the very first state immediately, making `data` non-undefined from the start.
+    initialData: (): AgentQueryData => ({
+        messages: streamMessages ?? [],
+        isLoading: streamIsLoading,
+        error: processStreamError(streamError),
+    }),
+  });
+
+  // Return the state from React Query and the interaction methods from the stream hook.
+  // Since initialData is provided and returns AgentQueryData, `data` is AgentQueryData (not undefined).
+  // `isLoading` and `error` are from React Query's own state.
+  return {
+    messages: data.messages, // data is AgentQueryData here
+    isLoading: isLoading, // This is React Query's isLoading
+    error: error, // This is React Query's error (Error | null)
+    send: streamSend,
+    stop: streamStop,
   };
 }
 
