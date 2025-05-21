@@ -1,6 +1,4 @@
 "use client";
-
-// import { useState } from "react"; // No longer needed here
 import { MessageInput } from "@/components/ui/message-input";
 import { MessageList } from "@/components/ui/message-list";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
@@ -18,7 +16,7 @@ interface Message {
 interface ChatSidebarProps {
   uuid: string;
   isOpen: boolean;
-  toggleSidebar: () => void; // No longer optional
+  toggleSidebar: () => void;
 }
 
 export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {
@@ -108,14 +106,7 @@ export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {
         </div>
       </aside>
 
-      {/* The toggle button for when the sidebar is closed is now handled in UuidPage and passed to AppHeader */}
-      {/* {!isOpen && (
-        <SidebarToggle
-          isOpen={isOpen}
-          toggle={toggleSidebar}
-          className="fixed top-4 right-4 z-50"
-        />
-      )} */}
+      {/* Sidebar toggle when closed is handled in UuidPage */}
     </>
   );
 }

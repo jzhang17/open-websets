@@ -55,18 +55,18 @@
 │   │   ├── tsconfig.json
 │   │   ├── utils.ts
 │   │   └── yarn.lock
-│   └── exa_query_agent/
-│       ├── configuration.ts
-│       ├── graph.ts
-│       ├── jest.config.js
-│       ├── langgraph.json
-│       ├── package-lock.json
-│       ├── package.json
-│       ├── system_prompt.md
-│       ├── tools.ts
-│       ├── tsconfig.json
-│       ├── utils.ts
-│       └── yarn.lock
+│   ├── auth.mts
+│   ├── configuration.ts
+│   ├── graph.ts
+│   ├── jest.config.js
+│   ├── langgraph.json
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── system_prompt.md
+│   ├── tools.ts
+│   ├── tsconfig.json
+│   ├── utils.ts
+│   └── yarn.lock
 ```
 
 ## Agent Instructions
