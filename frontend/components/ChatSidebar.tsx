@@ -62,9 +62,9 @@ export function ChatSidebar({ uuid, isOpen, toggleSidebar }: ChatSidebarProps) {
           <div className="flex-grow overflow-y-auto min-h-0">
             <MessageList
               messages={agentMessages.map((msg) => ({
-                id: msg.id,
+                id: msg.id!,
                 role: msg.type === "human" ? "user" : "assistant",
-                content: msg.content,
+                content: msg.content as unknown as string,
               }))}
               isTyping={isGenerating}
             />
