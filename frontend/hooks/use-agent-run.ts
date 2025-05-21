@@ -30,7 +30,7 @@ export function useAgentRun({
   threadId,
   initialInput,
 }: UseAgentRunProps) {
-  const apiUrl = process.env.NEXT_PUBLIC_LANGGRAPH_API_URL;
+  const apiUrl = "/api/langgraph";
 
   if (!apiUrl) {
     throw new Error(

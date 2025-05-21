@@ -5,6 +5,5 @@
   "graphs": {
     "agent": "./graph.ts:graph"
   },
-  "env": ".env",
-  "auth": { "path": "./auth.mts:auth" }
+  "env": ".env"
 }
