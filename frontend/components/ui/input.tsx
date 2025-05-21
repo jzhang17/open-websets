@@ -56,6 +56,7 @@ function Input({
   const buttonRef = React.useRef<HTMLButtonElement>(null);
 
   const router = useRouter();
+  const [localLoading, setLocalLoading] = React.useState(false);
 
   const {
     messages: agentMessages,
@@ -85,7 +86,7 @@ function Input({
 
   const isControlled = propValue !== undefined;
   const displayValue = isControlled ? propValue : internalValue;
-  const loading = isLoading || agentIsLoading;
+  const loading = isLoading || agentIsLoading || localLoading;
 
   // Effect to load from localStorage on initial mount (for uncontrolled mode)
   React.useEffect(() => {
@@ -156,6 +157,7 @@ function Input({
     if (loading) {
       return;
     }
+    setLocalLoading(true);
     sendToAgent(query);
     if (!isControlled) {
       setInternalValue("");

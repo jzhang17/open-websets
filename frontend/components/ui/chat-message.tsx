@@ -169,11 +169,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   } else if (content && typeof content === 'object' && (content as any).type === 'text' && typeof (content as any).text === 'string') {
     renderableTopLevelContent = (content as any).text;
   } else {
-    console.warn(
-      `ChatMessage's 'content' prop received an unexpected value for direct rendering. Got:`,
-      content
-    );
-    renderableTopLevelContent = "";
+    // Important: Do not log warning if parts or toolInvocations are present,
+    // as 'content' might be irrelevant or structured differently in those cases.
+    if (!parts?.length && !toolInvocations?.length) {
+      console.warn(
+        `ChatMessage's 'content' prop received an unexpected value for direct rendering and no parts/tools. Got:`,
+        content
+      );
+    }
+    renderableTopLevelContent = ""; // Default to empty if content is not a recognized format for text
   }
 
   if (isUser) {
@@ -257,6 +261,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   if (toolInvocations && toolInvocations.length > 0) {
     return <ToolCall toolInvocations={toolInvocations} />;
+  }
+
+  // Fallback for assistant messages: render based on renderableTopLevelContent.
+  // If, after all, the assistant message has no 'parts', no 'toolInvocations',
+  // and its derived textual content is empty, render nothing.
+  if (!isUser && renderableTopLevelContent.trim() === "") {
+    return null;
   }
 
   return (
