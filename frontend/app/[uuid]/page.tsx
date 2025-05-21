@@ -8,7 +8,7 @@ export default async function UuidPage({
   const { uuid } = await params;
 
   return (
-    <ClientPageLayout uuid={uuid}>
+    <ClientPageLayout>
       <div className="shadow-lg rounded-lg p-6 sm:p-10 max-w-md w-full bg-card text-card-foreground">
         <h1 className="text-3xl sm:text-4xl font-bold mb-6">Item Details</h1>
         <div className="space-y-4 text-left">

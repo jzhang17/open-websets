@@ -29,7 +29,7 @@ export interface UseAgentRunProps {
 }
 
 // Renamed original hook: This hook directly manages the LangGraph stream.
-function useLangGraphStreamAndSend({
+export function useLangGraphStreamAndSend({
   threadId,
   initialInput,
   onThreadId,
@@ -107,7 +107,7 @@ interface AgentQueryData {
 }
 
 // Helper function to process stream error into a consistent Error | null type
-const processStreamError = (error: unknown): Error | null => {
+export const processStreamError = (error: unknown): Error | null => {
   if (!error) return null;
   if (error instanceof Error) return error;
   // Attempt to create an Error from common error-like object structures

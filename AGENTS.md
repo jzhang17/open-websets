@@ -11,8 +11,11 @@
 │   ├── app/
 │   │   ├── favicon.ico
 │   │   ├── globals.css
+│   │   ├── client-providers.tsx
 │   │   ├── layout.tsx
-│   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   └── providers/
+│   │       └── agent-run-provider.tsx
 │   ├── components/
 │   ├── components.json
 │   ├── eslint.config.mjs
