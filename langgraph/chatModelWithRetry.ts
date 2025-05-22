@@ -1,13 +1,30 @@
 import { loadChatModel } from "./utils.js";
 import { GoogleGenerativeAIError } from "@google/generative-ai";
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5;
 
-function isParseError(err: unknown): err is GoogleGenerativeAIError {
-  return (
+function isParseError(err: unknown): boolean {
+  if (
     err instanceof GoogleGenerativeAIError &&
     err.message.includes("Failed to parse stream")
-  );
+  ) {
+    return true;
+  }
+  const msg =
+    typeof err === "object" && err !== null && "message" in err
+      ? String((err as any).message)
+      : String(err);
+  if (msg.includes("Failed to parse stream")) return true;
+  const cause = (err as any)?.cause;
+  if (
+    cause &&
+    typeof cause === "object" &&
+    "message" in cause &&
+    String(cause.message).includes("Failed to parse stream")
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function backoffMs(attempt: number) {
