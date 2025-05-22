@@ -49,12 +49,13 @@ export default {
     ];
 
     return (
-      <div className="flex-1 w-full h-full">
+      <div className="flex-1 w-full">
         <AgGridReact
           theme={themeAlpine}
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={{ flex: 1, sortable: true, filter: true }}
+          domLayout="autoHeight"
         />
       </div>
     );
