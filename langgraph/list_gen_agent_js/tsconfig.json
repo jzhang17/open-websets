@@ -17,8 +17,9 @@
     "strictFunctionTypes": false,
     "outDir": "dist",
     "types": ["jest", "node"],
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "jsx": "react-jsx"
   },
-  "include": ["**/*.ts", "**/*.js"],
+  "include": ["**/*.{ts,tsx}", "**/*.js"],
   "exclude": ["node_modules", "dist"]
 }

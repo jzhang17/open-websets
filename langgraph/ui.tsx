@@ -3,16 +3,23 @@ import { AgGridReact } from "ag-grid-react";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import { useStreamContext } from "@langchain/langgraph-sdk/react-ui";
+import type { Entity } from "./list_gen_agent_js/graph";
+import type { QualificationItem } from "./entity_qualification_agent_js/graph";
+
+interface AgGridTableProps {
+  entities?: Entity[];
+  qualificationSummary?: QualificationItem[];
+}
 
 // Defines the AG Grid table component for generative UI
 export default {
-  agGridTable: (props) => {
+  agGridTable: (props: AgGridTableProps) => {
     const { entities = [], qualificationSummary = [] } = props;
     // Access stream context if needed
     const { meta } = useStreamContext?.() || {};
 
     const rowData = entities.map((e) => {
-      const qual = qualificationSummary.find((q) => q.index === e.index) || {};
+      const qual = qualificationSummary.find((q) => q.index === e.index) || ({} as Partial<QualificationItem>);
       return {
         index: e.index,
         name: e.name,

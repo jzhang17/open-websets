@@ -6,7 +6,7 @@
     "agent": "./graph.ts:graph"
   },
   "ui": {
-    "agent": "./ui.js"
+    "agent": "./ui.tsx"
   },
   "env": ".env"
 }

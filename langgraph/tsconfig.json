@@ -20,6 +20,6 @@
     "resolveJsonModule": true,
     "jsx": "react-jsx"
   },
-  "include": ["**/*.ts", "**/*.js"],
+  "include": ["**/*.{ts, tsx}", "**/*.js"],
   "exclude": ["node_modules", "dist"]
 }
