@@ -1,6 +1,5 @@
 import React from "react";
 import { AgGridReact } from "ag-grid-react";
-import { themeAlpine } from "ag-grid-community";
 import { useStreamContext } from "@langchain/langgraph-sdk/react-ui";
 import type { Entity } from "./list_gen_agent_js/graph";
 import type { QualificationItem } from "./entity_qualification_agent_js/graph";
@@ -14,12 +13,17 @@ interface AgGridTableProps {
   qualificationSummary?: QualificationItem[];
 }
 
+interface StreamContextMeta {
+  theme?: "light" | "dark";
+}
+
 // Defines the AG Grid table component for generative UI
 export default {
   agGridTable: (props: AgGridTableProps) => {
     const { entities = [], qualificationSummary = [] } = props;
     // Access stream context if needed
-    const { meta } = useStreamContext?.() || {};
+    const { meta } = useStreamContext<Record<string, unknown>, { MetaType: StreamContextMeta }>() || {};
+    const currentTheme = meta?.theme === "dark" ? "ag-theme-alpine-dark" : "ag-theme-alpine";
 
     type RowItem = {
       index: number;
@@ -60,12 +64,28 @@ export default {
         sortable: true,
         flex: 1,
         comparator: (valueA: boolean | null, valueB: boolean | null) => {
-          if (valueA === valueB) return 0;
-          if (valueA === true) return -1;
-          if (valueB === true) return 1;
-          if (valueA === false) return -1; // false before null
-          if (valueB === false) return 1; // null after false
-          return 0;
+          // Desired sort order: true, then false, then null.
+          // Map values to numbers where a smaller number means higher sort priority.
+          const mapToPriority = (val: boolean | null): number => {
+            if (val === true) {
+              return 0; // Highest priority
+            }
+            if (val === false) {
+              return 1; // Middle priority
+            }
+            return 2; // Lowest priority (represents null)
+          };
+
+          const priorityA = mapToPriority(valueA);
+          const priorityB = mapToPriority(valueB);
+
+          if (priorityA < priorityB) {
+            return -1; // A comes before B
+          }
+          if (priorityA > priorityB) {
+            return 1;  // A comes after B
+          }
+          return 0; // A and B are of equal priority for sorting
         },
       },
       { field: "reasoning", headerName: "Reasoning", flex: 3, wrapText: true },
@@ -74,7 +94,7 @@ export default {
     return (
       <div className="flex-1 w-full">
         <AgGridReact
-          theme={themeAlpine}
+          className={currentTheme}
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={{ flex: 1, sortable: true, filter: true }}

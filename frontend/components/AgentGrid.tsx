@@ -2,6 +2,7 @@
 import React from "react";
 import { useAgentRun } from "../hooks/use-agent-run";
 import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
+import { useTheme } from "next-themes";
 
 export interface AgentGridProps {
   threadId: string;
@@ -9,6 +10,7 @@ export interface AgentGridProps {
 
 export default function AgentGrid({ threadId }: AgentGridProps) {
   const { ui, send, stop, stream } = useAgentRun({ threadId });
+  const { theme, resolvedTheme } = useTheme();
 
   // Find the last message that is an agGridTable
   const lastGridMessage = ui
@@ -25,6 +27,7 @@ export default function AgentGrid({ threadId }: AgentGridProps) {
             stream={stream as any}
             message={lastGridMessage}
             fallback={<div>Loading grid...</div>}
+            meta={{ theme: resolvedTheme === "dark" ? "dark" : "light" }}
           />
         </div>
       )}
