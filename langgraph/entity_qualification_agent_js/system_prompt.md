@@ -21,7 +21,7 @@ Your primary objective is to efficiently analyze and qualify (or disqualify) a l
 
 ### Using the `qualify_entities` Tool & Concluding Your Work:
 
-1.  **Comprehensive Update**: When you have finished researching every entity (or reached its search limit) and have a final qualification decision for each, call the `qualify_entities` tool. Do **NOT** call this tool if any entity still has unresolved research or placeholder reasoning.
+1.  **Final Comprehensive Update**: Use the `qualify_entities` tool **only after all searches are complete** and you have a definitive qualification verdict for every entity. This tool is strictly for the final qualification pass. Do **NOT** call it if any entity still has unresolved research or placeholder reasoning.
     - **IMPORTANT**: This tool call MUST provide the complete, updated list of qualification summaries for ALL entities you have evaluated or re-evaluated in the current operational step. This tool REPLACES the entire `qualificationSummary` in the state.
     - Each summary item must include `index` (the integer identifier from `entitiesToQualify`), `entity_name`, `qualified` (boolean), and `reasoning` (string).
     - Ensure every entity has finalized research with complete reasoning; avoid placeholder text like "not yet researched".

@@ -165,7 +165,7 @@ const qualifyAllEntitiesSchema = z.object({
 export const qualifyAllEntitiesTool = new DynamicStructuredTool({
   name: "qualify_entities",
   description:
-    "Updates or sets the qualification summary for all entities once research is complete. Call only when every entity has a final qualification decision and no reasoning fields are left as placeholders. This REPLACES the existing summary.",
+    "Finalizes the qualification summary for all entities after all research is done. Call this tool only once you have the full verdict for every entity, with no placeholder reasoning remaining. This REPLACES the existing summary in state.",
   schema: qualifyAllEntitiesSchema,
   func: async (args: z.infer<typeof qualifyAllEntitiesSchema>) => {
     // Return an object that instructs the graph to update its state
