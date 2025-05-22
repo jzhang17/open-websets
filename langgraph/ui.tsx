@@ -1,12 +1,11 @@
 import React from "react";
 import { AgGridReact } from "ag-grid-react";
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
+import { themeAlpine } from "ag-grid-community";
 import { useStreamContext } from "@langchain/langgraph-sdk/react-ui";
 import type { Entity } from "./list_gen_agent_js/graph";
 import type { QualificationItem } from "./entity_qualification_agent_js/graph";
 
-import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
+import { ModuleRegistry, AllCommunityModule, ColDef } from "ag-grid-community";
 // Register all community modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -22,7 +21,15 @@ export default {
     // Access stream context if needed
     const { meta } = useStreamContext?.() || {};
 
-    const rowData = entities.map((e) => {
+    type RowItem = {
+      index: number;
+      name: string;
+      url: string;
+      qualified: boolean | null;
+      reasoning: string;
+    };
+
+    const rowData: RowItem[] = entities.map((e) => {
       const qual = qualificationSummary.find((q) => q.index === e.index) || ({} as Partial<QualificationItem>);
       return {
         index: e.index,
@@ -33,7 +40,7 @@ export default {
       };
     });
 
-    const columnDefs = [
+    const columnDefs: ColDef<RowItem>[] = [
       { field: "index", headerName: "Index", sortable: true },
       { field: "name", headerName: "Entity Name", sortable: true, flex: 1 },
       { field: "url", headerName: "URL", sortable: true, flex: 2 },
@@ -42,8 +49,9 @@ export default {
     ];
 
     return (
-      <div className="ag-theme-alpine flex-1 w-full h-full">
+      <div className="flex-1 w-full h-full">
         <AgGridReact
+          theme={themeAlpine}
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={{ flex: 1, sortable: true, filter: true }}

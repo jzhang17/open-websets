@@ -47,7 +47,7 @@ export function useLangGraphStreamAndSend({
     assistantId: "agent",
     threadId: threadId ?? undefined,
     messagesKey: "parentMessages",
-    streamMode: ["updates", "custom"],
+    streamMode: ["messages", "custom"],
     onThreadId,
     onCustomEvent: (event, options) => {
       options.mutate(prev => ({
