@@ -21,9 +21,11 @@ interface StreamContextMeta {
 export default {
   agGridTable: (props: AgGridTableProps) => {
     const { entities = [], qualificationSummary = [] } = props;
-    // Access stream context if needed
-    const { meta } = useStreamContext<Record<string, unknown>, { MetaType: StreamContextMeta }>() || {};
-    const currentTheme = meta?.theme === "dark" ? "ag-theme-alpine-dark" : "ag-theme-alpine";
+    // Retrieve stream context and default theme to light if undefined
+    const context = useStreamContext<Record<string, unknown>, { MetaType: StreamContextMeta }>();
+    const themeMeta = context?.meta ?? { theme: "light" };
+    // Default to 'ag-theme-alpine-dark' only when explicitly dark, otherwise light
+    const currentTheme = themeMeta.theme === "dark" ? "ag-theme-alpine-dark" : "ag-theme-alpine";
 
     type RowItem = {
       index: number;
@@ -94,7 +96,9 @@ export default {
 
     return (
       <div className="flex-1 w-full">
+        {/* Use key to remount on theme change */}
         <AgGridReact
+          key={currentTheme}
           className={currentTheme}
           rowData={rowData}
           columnDefs={columnDefs}

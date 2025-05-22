@@ -23,7 +23,7 @@ export default function AgentGrid({ threadId }: AgentGridProps) {
       {lastGridMessage && (
         <div className="w-full h-full">
           <LoadExternalComponent
-            key={lastGridMessage.id}
+            key={`${lastGridMessage.id}-${resolvedTheme === "dark" ? "dark" : "light"}`}
             stream={stream as any}
             message={lastGridMessage}
             fallback={<div>Loading grid...</div>}
