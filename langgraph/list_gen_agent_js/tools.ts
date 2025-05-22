@@ -220,13 +220,21 @@ const exaSearchSchema = z.object({
 });
 
 /**
- * Performs multiple web searches simultaneously using Exa AI, supporting two modes and category filtering for all queries. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results per query, including entities to qualify and full result details.
+ * Performs up to five web searches in a **single** call using Exa AI. Supports
+ * both 'neural' and 'keyword' modes as well as optional category filtering.
+ * 'Neural' mode leverages vector embeddings for semantic, context-aware
+ * searches ideal for conceptual queries and list generation (not optimal for
+ * precise fact retrieval). 'Keyword' mode uses traditional keyword matching for
+ * accurate fact finding. Use 'category' to narrow the search to curated indices
+ * like company, research paper, news, pdf, github, tweet, personal site,
+ * linkedin profile, or financial report. Returns up to 25 results per query,
+ * including entities to qualify and full result details.
  */
 
 const exaSearch = new DynamicStructuredTool({
   name: "exa_search",
   description:
-    "Perform multiple web searches simultaneously using Exa AI with two modes and category filtering for all queries. 'Neural' mode uses vector embeddings for semantic, context-aware searches ideal for conceptual queries and list generation (not optimal for precise fact retrieval). 'Keyword' mode uses traditional keyword matching for accurate fact finding. Use 'category' to narrow search to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results per query, including entities to qualify and full result details. Input format: {\"queries\": [\"query1\", \"query2\", ...]}",
+    "Search the web with Exa. Provide **up to five queries** at once in a single call. Supports 'neural' or 'keyword' mode and an optional `category` to limit results to curated indices like company, research paper, news, pdf, github, tweet, personal site, linkedin profile, or financial report. Returns up to 25 results per query. Input format: {\"queries\": [\"query1\", \"query2\", ...]}",
   schema: exaSearchSchema,
   func: async (args: z.infer<typeof exaSearchSchema>) => {
     const { queries, type, category } = args;
@@ -268,13 +276,12 @@ const exaSearch = new DynamicStructuredTool({
         options.category = category;
       }
 
-      const searchPromises = queries.map((query) => exa.search(query, options));
-      const searchResponses = await Promise.all(searchPromises);
+      const allResults = [] as ExaSearchResult[];
+      for (const query of queries) {
+        const response = await exa.search(query, options);
+        allResults.push(...response.results);
+      }
 
-      // Combine results from all queries
-      const allResults = searchResponses.flatMap(
-        (response) => response.results,
-      );
 
       return JSON.stringify(allResults);
     } catch (error: any) {
