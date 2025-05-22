@@ -6,6 +6,10 @@ import { useStreamContext } from "@langchain/langgraph-sdk/react-ui";
 import type { Entity } from "./list_gen_agent_js/graph";
 import type { QualificationItem } from "./entity_qualification_agent_js/graph";
 
+import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
+// Register all community modules
+ModuleRegistry.registerModules([AllCommunityModule]);
+
 interface AgGridTableProps {
   entities?: Entity[];
   qualificationSummary?: QualificationItem[];
