@@ -10,7 +10,12 @@ export interface AgentGridProps {
 
 export default function AgentGrid({ threadId }: AgentGridProps) {
   const { ui, send, stop, stream } = useAgentRun({ threadId });
-  const { resolvedTheme } = useTheme();
+  const { theme, resolvedTheme } = useTheme();
+
+  // Wait until the component is mounted on the client to avoid SSR/CSR
+  // mismatches (e.g. when the server renders with an unknown theme).
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
 
   // Find the last message that is an agGridTable
   const lastGridMessage = ui
@@ -18,19 +23,19 @@ export default function AgentGrid({ threadId }: AgentGridProps) {
     .reverse()
     .find((msg) => msg.name === "agGridTable");
 
-  // Get the current theme without using a conditional
-  const currentTheme = resolvedTheme === "dark" ? "dark" : "light";
-
   return (
     <>
-      {lastGridMessage && (
+      {/* Render only after mount to ensure we have the correct theme */}
+      {mounted && lastGridMessage && (
         <div className="w-full h-full">
           <LoadExternalComponent
-            key={lastGridMessage.id}
+            // Re-mount the component whenever the theme changes so that meta
+            // (and thus the AG Grid theme) is updated correctly.
+            key={`${lastGridMessage.id}-${resolvedTheme}`}
             stream={stream as any}
             message={lastGridMessage}
             fallback={<div>Loading grid...</div>}
-            meta={{ theme: currentTheme }}
+            meta={{ theme: resolvedTheme === "dark" ? "dark" : "light" }}
           />
         </div>
       )}

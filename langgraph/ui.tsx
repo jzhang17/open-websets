@@ -4,12 +4,13 @@ import { useStreamContext } from "@langchain/langgraph-sdk/react-ui";
 import type { Entity } from "./list_gen_agent_js/graph";
 import type { QualificationItem } from "./entity_qualification_agent_js/graph";
 
-import { 
-  ModuleRegistry, 
-  AllCommunityModule, 
-  ColDef
+import {
+  ModuleRegistry,
+  AllCommunityModule,
+  ColDef,
+  themeAlpine,
+  colorSchemeDark,
 } from "ag-grid-community";
-
 // Register all community modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -28,9 +29,11 @@ export default {
     const { entities = [], qualificationSummary = [] } = props;
     // Access stream context if needed
     const { meta } = useStreamContext<Record<string, unknown>, { MetaType: StreamContextMeta }>() || {};
-    
-    // Directly use the dark theme if meta.theme is "dark" - no conditional
-    const gridTheme = meta?.theme === "dark" ? "ag-theme-alpine-dark" : "ag-theme-alpine";
+    // Build the appropriate AG Grid theme object. We start with `themeAlpine`
+    // and, if the UI is in dark mode, apply the built-in `colorSchemeDark` part.
+    const gridTheme = meta && meta.theme === "dark"
+      ? themeAlpine.withPart(colorSchemeDark)
+      : themeAlpine;
 
     type RowItem = {
       index: number;
@@ -100,8 +103,9 @@ export default {
     ];
 
     return (
-      <div className={`flex-1 w-full ${gridTheme}`} style={{ height: '500px' }}>
+      <div className="flex-1 w-full">
         <AgGridReact
+          theme={gridTheme}
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={{ flex: 1, sortable: true, filter: true }}
