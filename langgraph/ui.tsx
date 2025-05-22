@@ -62,6 +62,7 @@ export default {
         field: "qualified",
         headerName: "Match",
         sortable: true,
+        sort: 'asc',
         flex: 1,
         comparator: (valueA: boolean | null, valueB: boolean | null) => {
           // Desired sort order: true, then false, then null.
