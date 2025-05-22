@@ -186,6 +186,10 @@ const COMPONENTS = {
   tr: withClass("tr", "m-0 border-t p-0 even:bg-muted"),
   p: withClass("p", "whitespace-pre-wrap"),
   hr: withClass("hr", "border-foreground/20"),
+  img: ({ node, src, alt, ...props }: any) => {
+    if (!src) return null;
+    return <img src={src} alt={alt} {...props} />;
+  },
 };
 
 function withClass(Tag: keyof JSX.IntrinsicElements, classes: string) {
