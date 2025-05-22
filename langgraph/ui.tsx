@@ -41,10 +41,33 @@ export default {
     });
 
     const columnDefs: ColDef<RowItem>[] = [
-      { field: "index", headerName: "Index", sortable: true },
-      { field: "name", headerName: "Entity Name", sortable: true, flex: 1 },
-      { field: "url", headerName: "URL", sortable: true, flex: 2 },
-      { field: "qualified", headerName: "Qualified", sortable: true, flex: 1 },
+      { field: "index", headerName: "Index", sortable: true, hide: true },
+      { field: "name", headerName: "Name", sortable: true, flex: 1 },
+      {
+        field: "url",
+        headerName: "URL",
+        sortable: true,
+        flex: 2,
+        cellRenderer: (params: { value: string }) => (
+          <a href={params.value} target="_blank" rel="noopener noreferrer">
+            {params.value}
+          </a>
+        ),
+      },
+      {
+        field: "qualified",
+        headerName: "Match",
+        sortable: true,
+        flex: 1,
+        comparator: (valueA: boolean | null, valueB: boolean | null) => {
+          if (valueA === valueB) return 0;
+          if (valueA === true) return -1;
+          if (valueB === true) return 1;
+          if (valueA === false) return -1; // false before null
+          if (valueB === false) return 1; // null after false
+          return 0;
+        },
+      },
       { field: "reasoning", headerName: "Reasoning", flex: 3, wrapText: true },
     ];
 

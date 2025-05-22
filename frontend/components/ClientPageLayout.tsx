@@ -33,7 +33,7 @@ export function ClientPageLayout({ children }: ClientPageLayoutProps) {
 
       <div className="flex flex-1 pt-16">
         <main
-          className={`flex-1 flex flex-col items-center justify-center p-4 sm:p-10 bg-background overflow-y-auto transition-all duration-300 ease-in-out ${
+          className={`flex-1 flex flex-col items-center justify-center bg-background overflow-y-auto transition-all duration-300 ease-in-out ${
             isSidebarOpen ? "mr-[24rem]" : "mr-0"
           }`}
         >

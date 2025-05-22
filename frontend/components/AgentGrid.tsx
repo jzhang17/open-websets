@@ -10,16 +10,24 @@ export interface AgentGridProps {
 export default function AgentGrid({ threadId }: AgentGridProps) {
   const { ui, send, stop, stream } = useAgentRun({ threadId });
 
+  // Find the last message that is an agGridTable
+  const lastGridMessage = ui
+    .slice()
+    .reverse()
+    .find((msg) => msg.name === "agGridTable");
+
   return (
     <>
-      {ui.map((msg) => (
-        <LoadExternalComponent
-          key={msg.id}
-          stream={stream as any}
-          message={msg}
-          fallback={<div>Loading grid...</div>}
-        />
-      ))}
+      {lastGridMessage && (
+        <div className="w-full h-full">
+          <LoadExternalComponent
+            key={lastGridMessage.id}
+            stream={stream as any}
+            message={lastGridMessage}
+            fallback={<div>Loading grid...</div>}
+          />
+        </div>
+      )}
     </>
   );
 } 
