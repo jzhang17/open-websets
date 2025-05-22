@@ -10,7 +10,7 @@ export interface AgentGridProps {
 
 export default function AgentGrid({ threadId }: AgentGridProps) {
   const { ui, send, stop, stream } = useAgentRun({ threadId });
-  const { theme, resolvedTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   // Find the last message that is an agGridTable
   const lastGridMessage = ui
@@ -18,16 +18,19 @@ export default function AgentGrid({ threadId }: AgentGridProps) {
     .reverse()
     .find((msg) => msg.name === "agGridTable");
 
+  // Get the current theme without using a conditional
+  const currentTheme = resolvedTheme === "dark" ? "dark" : "light";
+
   return (
     <>
       {lastGridMessage && (
         <div className="w-full h-full">
           <LoadExternalComponent
-            key={`${lastGridMessage.id}-${resolvedTheme === "dark" ? "dark" : "light"}`}
+            key={lastGridMessage.id}
             stream={stream as any}
             message={lastGridMessage}
             fallback={<div>Loading grid...</div>}
-            meta={{ theme: resolvedTheme === "dark" ? "dark" : "light" }}
+            meta={{ theme: currentTheme }}
           />
         </div>
       )}

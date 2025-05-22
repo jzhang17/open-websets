@@ -4,7 +4,12 @@ import { useStreamContext } from "@langchain/langgraph-sdk/react-ui";
 import type { Entity } from "./list_gen_agent_js/graph";
 import type { QualificationItem } from "./entity_qualification_agent_js/graph";
 
-import { ModuleRegistry, AllCommunityModule, ColDef } from "ag-grid-community";
+import { 
+  ModuleRegistry, 
+  AllCommunityModule, 
+  ColDef
+} from "ag-grid-community";
+
 // Register all community modules
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -21,11 +26,11 @@ interface StreamContextMeta {
 export default {
   agGridTable: (props: AgGridTableProps) => {
     const { entities = [], qualificationSummary = [] } = props;
-    // Retrieve stream context and default theme to light if undefined
-    const context = useStreamContext<Record<string, unknown>, { MetaType: StreamContextMeta }>();
-    const themeMeta = context?.meta ?? { theme: "light" };
-    // Default to 'ag-theme-alpine-dark' only when explicitly dark, otherwise light
-    const currentTheme = themeMeta.theme === "dark" ? "ag-theme-alpine-dark" : "ag-theme-alpine";
+    // Access stream context if needed
+    const { meta } = useStreamContext<Record<string, unknown>, { MetaType: StreamContextMeta }>() || {};
+    
+    // Directly use the dark theme if meta.theme is "dark" - no conditional
+    const gridTheme = meta?.theme === "dark" ? "ag-theme-alpine-dark" : "ag-theme-alpine";
 
     type RowItem = {
       index: number;
@@ -95,11 +100,8 @@ export default {
     ];
 
     return (
-      <div className="flex-1 w-full">
-        {/* Use key to remount on theme change */}
+      <div className={`flex-1 w-full ${gridTheme}`} style={{ height: '500px' }}>
         <AgGridReact
-          key={currentTheme}
-          className={currentTheme}
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={{ flex: 1, sortable: true, filter: true }}
