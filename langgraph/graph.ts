@@ -338,31 +338,34 @@ parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 
 // Subgraphs handle list generation and entity qualification
 parentWorkflow.addNode("listGeneration", listGenerationGraph);
-parentWorkflow.addNode(
-  "qualificationRouter",
-  async (state: ParentAppState, config: RunnableConfig) => {
-    // Emit UI update for AG Grid table
-    const ui = typedUi(config);
-    ui.push({
-      name: "agGridTable",
-      props: {
-        entities: state.entities,
-        qualificationSummary: state.qualificationSummary,
-      },
-    });
-    // Check if all entities are processed and emit a completion message
-    const batchSize = 15;
-    const totalEntities = state.entities?.length ?? 0;
-    const finished = state.finishedBatches * batchSize >= totalEntities;
-    if (finished) {
-      const doneMsg = new AIMessage({
-        content: "The search and qualification process is complete.",
+  parentWorkflow.addNode(
+    "qualificationRouter",
+    async (state: ParentAppState, config: RunnableConfig) => {
+      // Emit UI update for AG Grid table and return it for streaming
+      const ui = typedUi(config);
+      const uiEvent = ui.push({
+        name: "agGridTable",
+        props: {
+          entities: state.entities,
+          qualificationSummary: state.qualificationSummary,
+        },
       });
-      return { parentMessages: [doneMsg] };
-    }
-    return {};
-  },
-);
+
+      // Check if all entities are processed and emit a completion message
+      const batchSize = 15;
+      const totalEntities = state.entities?.length ?? 0;
+      const finished = state.finishedBatches * batchSize >= totalEntities;
+
+      if (finished) {
+        const doneMsg = new AIMessage({
+          content: "The search and qualification process is complete.",
+        });
+        return { parentMessages: [doneMsg], ui: [uiEvent] };
+      }
+
+      return { ui: [uiEvent] };
+    },
+  );
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);
 
 // Workflow edges
