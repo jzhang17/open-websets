@@ -164,7 +164,8 @@ const qualifyAllEntitiesSchema = z.object({
  */
 export const qualifyAllEntitiesTool = new DynamicStructuredTool({
   name: "qualify_entities",
-  description: "Updates or sets the qualification summary for all entities once research is complete. Call only when every entity has a final qualification decision and no reasoning fields are left as placeholders. This REPLACES the existing summary.",
+  description:
+    "Updates or sets the qualification summary for all entities once research is complete. Call only when every entity has a final qualification decision and no reasoning fields are left as placeholders. This REPLACES the existing summary.",
   schema: qualifyAllEntitiesSchema,
   func: async (args: z.infer<typeof qualifyAllEntitiesSchema>) => {
     // Return an object that instructs the graph to update its state
@@ -184,11 +185,9 @@ const verifyInputsSchema = z.object({
         index: z.number(),
         name: z.string(),
         url: z.string(),
-      })
+      }),
     )
-    .describe(
-      "The list of entities that should be qualified (from state).",
-    ),
+    .describe("The list of entities that should be qualified (from state)."),
   qualificationSummary: z
     .array(
       z

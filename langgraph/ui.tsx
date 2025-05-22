@@ -28,12 +28,17 @@ export default {
   agGridTable: (props: AgGridTableProps) => {
     const { entities = [], qualificationSummary = [] } = props;
     // Access stream context if needed
-    const { meta } = useStreamContext<Record<string, unknown>, { MetaType: StreamContextMeta }>() || {};
+    const { meta } =
+      useStreamContext<
+        Record<string, unknown>,
+        { MetaType: StreamContextMeta }
+      >() || {};
     // Build the appropriate AG Grid theme object. We start with `themeAlpine`
     // and, if the UI is in dark mode, apply the built-in `colorSchemeDark` part.
-    const gridTheme = meta && meta.theme === "dark"
-      ? themeAlpine.withPart(colorSchemeDark)
-      : themeAlpine;
+    const gridTheme =
+      meta && meta.theme === "dark"
+        ? themeAlpine.withPart(colorSchemeDark)
+        : themeAlpine;
 
     type RowItem = {
       index: number;
@@ -44,7 +49,9 @@ export default {
     };
 
     const rowData: RowItem[] = entities.map((e) => {
-      const qual = qualificationSummary.find((q) => q.index === e.index) || ({} as Partial<QualificationItem>);
+      const qual =
+        qualificationSummary.find((q) => q.index === e.index) ||
+        ({} as Partial<QualificationItem>);
       return {
         index: e.index,
         name: e.name,
@@ -72,7 +79,7 @@ export default {
         field: "qualified",
         headerName: "Match",
         sortable: true,
-        sort: 'asc',
+        sort: "asc",
         flex: 1,
         comparator: (valueA: boolean | null, valueB: boolean | null) => {
           // Desired sort order: true, then false, then null.
@@ -94,7 +101,7 @@ export default {
             return -1; // A comes before B
           }
           if (priorityA > priorityB) {
-            return 1;  // A comes after B
+            return 1; // A comes after B
           }
           return 0; // A and B are of equal priority for sorting
         },
@@ -114,4 +121,4 @@ export default {
       </div>
     );
   },
-}; 
+};
