@@ -94,6 +94,7 @@ Before making any changes to the code, please ensure you have thoroughly reviewe
 Perform the following quick checks on a regular basis to keep the project clean and healthy:
 
 - **Run linters and tests** to catch small bugs early.
+- **Run `npm run build` in `frontend/`** and resolve any build errors until the build completes without issues.
 - **Search for `TODO` or commented‑out code** and address or remove it.
 - **Check for outdated dependencies** and update them as needed.
 - **Review error handling** to ensure proper error messages and logging.
