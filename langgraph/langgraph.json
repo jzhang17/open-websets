@@ -5,5 +5,8 @@
   "graphs": {
     "agent": "./graph.ts:graph"
   },
+  "ui": {
+    "agent": "./ui.js"
+  },
   "env": ".env"
 }

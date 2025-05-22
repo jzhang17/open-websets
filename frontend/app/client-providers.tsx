@@ -14,7 +14,7 @@ const queryClient = new QueryClient();
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <ReactQueryDevtools initialIsOpen={false} position="bottom-left" />
+      <ReactQueryDevtools initialIsOpen={false} />
       <AgentRunProvider>
         <ThemeProvider
           attribute="class"
