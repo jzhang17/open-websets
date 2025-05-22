@@ -12,7 +12,7 @@ import {
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
-import { loadChatModel } from "./utils.js";
+import { loadChatModelWithRetry as loadChatModel } from "./chatModelWithRetry.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
