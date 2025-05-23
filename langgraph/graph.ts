@@ -340,19 +340,28 @@ parentWorkflow.addNode(
   async (state: ParentAppState, config: RunnableConfig) => {
     // Emit UI update for AG Grid table
     const ui = typedUi(config);
-    ui.push({
+    const uiUpdate = ui.push({
       name: "agGridTable",
       props: { entities: state.entities, qualificationSummary: state.qualificationSummary },
     });
+    
     // Check if all entities are processed and emit a completion message
     const batchSize = 15;
     const totalEntities = state.entities?.length ?? 0;
     const finished = state.finishedBatches * batchSize >= totalEntities;
+    
     if (finished) {
       const doneMsg = new AIMessage({ content: "The search and qualification process is complete." });
-      return { parentMessages: [doneMsg] };
+      return { 
+        parentMessages: [doneMsg],
+        ui: [uiUpdate] // Include UI update in final state
+      };
     }
-    return {};
+    
+    // For intermediate updates, return the UI update to force streaming
+    return { 
+      ui: [uiUpdate] // Explicitly return UI update to trigger streaming
+    };
   }
 );
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);

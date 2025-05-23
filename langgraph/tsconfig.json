@@ -6,6 +6,7 @@
     "module": "NodeNext",
     "moduleResolution": "nodenext",
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
@@ -17,6 +18,7 @@
     "strictFunctionTypes": false,
     "outDir": "dist",
     "types": ["jest", "node"],
+    "typeRoots": ["./node_modules/@types"],
     "resolveJsonModule": true,
     "jsx": "react-jsx"
   },
