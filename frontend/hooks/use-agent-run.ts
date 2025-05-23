@@ -42,17 +42,6 @@ export function useLangGraphStreamAndSend({
     apiUrl = `${window.location.origin}/api/langgraph`;
   }
 
-  // Internal UI state that persists across updates
-  const [internalUI, setInternalUI] = useState<any[]>([]);
-  
-  // Use a ref to track the current UI state for the onCustomEvent callback
-  const currentUIRef = useRef<any[]>([]);
-  
-  // Keep the ref in sync with internalUI
-  useEffect(() => {
-    currentUIRef.current = internalUI;
-  }, [internalUI]);
-
   const streamHookResult = useStream<AgentState, { UpdateType: AgentUpdate }>({
     apiUrl,
     assistantId: "agent",
@@ -63,15 +52,12 @@ export function useLangGraphStreamAndSend({
     onThreadId,
     onCustomEvent: (event, options) => {
       console.log("[useStream] Custom event received:", event);
-      // Properly handle UI message events using the mutate function and also update local UI state
+      // Handle UI message events using the mutate function following the LangGraph documentation
       options.mutate(prev => {
-        // Use currentUIRef.current for the reduction, as it holds the most recent full state
-        const currentUI = currentUIRef.current;
+        // Use the built-in uiMessageReducer to handle UI state updates properly
+        const currentUI = prev?.ui ?? [];
         const updatedUI = uiMessageReducer(currentUI, event as any);
         console.log("[useStream] UI updated from", currentUI.length, "to", updatedUI.length, "items");
-
-        // Update internal UI state
-        setInternalUI(updatedUI);
 
         return {
           ...prev,
@@ -83,21 +69,6 @@ export function useLangGraphStreamAndSend({
 
   const { submit, messages, isLoading, error, stop, values: stateValues } = streamHookResult;
   const initialInputSentRef = useRef(false);
-
-  // Sync internalUI state with stateValues.ui only if stateValues.ui is a more complete version
-  // (e.g., on initial load or full state replacement from the stream, not on partial custom events).
-  useEffect(() => {
-    if (stateValues?.ui && Array.isArray(stateValues.ui)) {
-      // Only update if stateValues.ui is a new, potentially more complete array.
-      // Custom events are handled by their own logic and directly update internalUI.
-      // This check helps prevent custom event updates from being overwritten by an empty stateValues.ui
-      if (stateValues.ui.length > 0 || internalUI.length === 0) {
-        setInternalUI(stateValues.ui);
-      }
-    }
-    // Debug: Log when UI state changes
-    console.log("[useLangGraphStreamAndSend] stateValues.ui changed:", stateValues?.ui);
-  }, [stateValues?.ui]);
 
   useEffect(() => {
     if (
@@ -138,7 +109,7 @@ export function useLangGraphStreamAndSend({
 
   return {
     messages: messages ?? [],
-    ui: internalUI,
+    ui: stateValues?.ui ?? [],
     isLoading,
     error,
     send,
