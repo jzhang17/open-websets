@@ -47,12 +47,26 @@ export function useLangGraphStreamAndSend({
     assistantId: "agent",
     threadId: threadId ?? undefined,
     messagesKey: "parentMessages",
+    // Add custom stream mode to receive UI events
+    streamMode: ["updates", "custom"],
     onThreadId,
     onCustomEvent: (event, options) => {
-      options.mutate(prev => ({
-        ...prev,
-        ui: uiMessageReducer((prev?.ui as any[]) ?? [], event as any),
-      }));
+      // Debug logging for custom events
+      console.log("🎯 Custom event received:", event);
+      
+      // Properly handle UI message events
+      options.mutate(prev => {
+        const currentUI = (prev?.ui as any[]) ?? [];
+        console.log("📝 Current UI state:", currentUI);
+        
+        const updatedUI = uiMessageReducer(currentUI, event as any);
+        console.log("✨ Updated UI state:", updatedUI);
+        
+        return {
+          ...prev,
+          ui: updatedUI,
+        };
+      });
     },
   } as UseStreamOptions<AgentState, { UpdateType: AgentUpdate }>);
 

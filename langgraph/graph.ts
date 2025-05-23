@@ -341,9 +341,11 @@ parentWorkflow.addNode("listGeneration", listGenerationGraph);
 parentWorkflow.addNode(
   "qualificationRouter",
   async (state: ParentAppState, config: RunnableConfig) => {
-    // Emit UI update for AG Grid table
+    // Emit UI update for AG Grid table using custom events
     const ui = typedUi(config);
-    const uiUpdate = ui.push({
+    
+    // Push UI update - this automatically emits it as a custom event
+    ui.push({
       name: "agGridTable",
       props: { entities: state.entities, qualificationSummary: state.qualificationSummary },
     });
@@ -356,15 +358,12 @@ parentWorkflow.addNode(
     if (finished) {
       const doneMsg = new AIMessage({ content: "The search and qualification process is complete." });
       return { 
-        parentMessages: [doneMsg],
-        ui: [uiUpdate] // Include UI update in final state
+        parentMessages: [doneMsg]
       };
     }
     
-    // For intermediate updates, return the UI update to force streaming
-    return { 
-      ui: [uiUpdate] // Explicitly return UI update to trigger streaming
-    };
+    // For intermediate updates, don't return UI in state - the ui.push() already emitted the event
+    return {};
   }
 );
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);

@@ -23,6 +23,12 @@ export default function AgentGrid({ threadId }: AgentGridProps) {
     .reverse()
     .find((msg) => msg.name === "agGridTable");
 
+  // Debug logging to see what's being received
+  React.useEffect(() => {
+    console.log("AgentGrid UI messages:", ui);
+    console.log("Last grid message:", lastGridMessage);
+  }, [ui, lastGridMessage]);
+
   return (
     <>
       {/* Render only after mount to ensure we have the correct theme */}
@@ -37,6 +43,13 @@ export default function AgentGrid({ threadId }: AgentGridProps) {
             fallback={<div>Loading grid...</div>}
             meta={{ theme: resolvedTheme === "dark" ? "dark" : "light" }}
           />
+        </div>
+      )}
+      
+      {/* Debug info - remove this once streaming works */}
+      {mounted && (
+        <div className="text-xs text-gray-500 mt-2">
+          UI Messages: {ui.length} | Grid Message: {lastGridMessage ? "Found" : "None"}
         </div>
       )}
     </>
