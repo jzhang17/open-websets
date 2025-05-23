@@ -53,25 +53,29 @@ Open Websets implements two architectural patterns enabled by LangGraph's capabi
 Our system utilizes LangGraph's `Send` API and subgraph functionality to distribute entity qualification tasks across multiple concurrent agents. This implementation follows LangGraph's recommended patterns for parallel processing.
 
 ```mermaid
-graph TD
-    A[Entity List] --> B[Qualification Router]
-    B --> C[Worker 1<br/>Batch 1-15]
-    B --> D[Worker 2<br/>Batch 16-30]
-    B --> E[Worker 3<br/>Batch 31-45]
-    B --> F[Worker 4<br/>Batch 46-60]
+graph LR
+    B[Qualification Router<br/>Batch Size: 15 entities<br/>Max: 4 Workers]
     
-    C --> G[Results Aggregator]
-    D --> G
-    E --> G
-    F --> G
+    B --> C[Worker A<br/>Entities 1-15<br/>60s]
+    B --> D[Worker B<br/>Entities 16-30<br/>30s] 
+    B --> E[Worker C<br/>Entities 31-45<br/>20s]
+    B --> F[Worker D<br/>Entities 46-60<br/>45s]
     
-    G --> H[Updated State]
+    C --> B
+    D --> B
+    E --> B  
+    F --> B
+    
+    %% Show dynamic reassignment as workers complete
+    E -.-> H[Gets Entities 61-75]
+    D -.-> I[Gets Entities 76-90] 
+    F -.-> J[Gets Entities 91-105]
+    C -.-> K[Gets Entities 106-120]
+    
     H --> B
-    
-    style B fill:#e1f5fe
-    style G fill:#f3e5f5
-    style A fill:#e8f5e8
-    style H fill:#fff3e0
+    I --> B
+    J --> B
+    K --> B
 ```
 
 **Implementation Details**: The qualification router leverages LangGraph's `Send` primitive to spawn multiple `entityQualification` subgraphs concurrently. Each subgraph processes a batch of 15 entities independently. The router maintains state tracking (`dispatchedBatches`, `finishedBatches`) to manage a pool of up to 4 concurrent workers.

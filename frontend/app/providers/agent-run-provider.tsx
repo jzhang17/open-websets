@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk";
 import { useLangGraphStreamAndSend, processStreamError } from "@/hooks/use-agent-run";
@@ -45,7 +45,8 @@ export function AgentRunProvider({ children }: { children: React.ReactNode }) {
     onThreadId: setThreadId,
   });
 
-  const value: AgentRunCtx = {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value: AgentRunCtx = useMemo(() => ({
     threadId,
     messages,
     ui,
@@ -55,7 +56,7 @@ export function AgentRunProvider({ children }: { children: React.ReactNode }) {
     stop,
     setThreadId,
     stream,
-  };
+  }), [threadId, messages, ui, isLoading, error, send, stop, setThreadId, stream]);
 
   return <AgentRunContext.Provider value={value}>{children}</AgentRunContext.Provider>;
 }
