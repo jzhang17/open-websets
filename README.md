@@ -1,4 +1,4 @@
-# open-websets
+# Open Websets
 
 This repository provides a Next.js based interface and several LangGraph agents written in TypeScript.
 
@@ -28,7 +28,6 @@ Install the LangGraph CLI using npx from the LangGraph folder:
 ```bash
 cd langgraph && npx @langchain/langgraph-cli
 ```
-
 ## Running
 
 Start the development server for the frontend with:
@@ -44,3 +43,80 @@ Preview the LangGraph agents with:
 cd langgraph
 npx @langchain/langgraph-cli@latest dev
 ```
+
+## Design Thinking
+
+Open Websets implements two architectural patterns enabled by LangGraph's capabilities: **concurrency fan-out mechanisms** and **generative UI components**. These patterns leverage LangGraph's built-in support for parallel processing and streaming to handle large datasets while providing real-time user interfaces.
+
+### Concurrency Fan-Out Architecture
+
+Our system utilizes LangGraph's `Send` API and subgraph functionality to distribute entity qualification tasks across multiple concurrent agents. This implementation follows LangGraph's recommended patterns for parallel processing.
+
+```mermaid
+graph TD
+    A[Entity List] --> B[Qualification Router]
+    B --> C[Worker 1<br/>Batch 1-15]
+    B --> D[Worker 2<br/>Batch 16-30]
+    B --> E[Worker 3<br/>Batch 31-45]
+    B --> F[Worker 4<br/>Batch 46-60]
+    
+    C --> G[Results Aggregator]
+    D --> G
+    E --> G
+    F --> G
+    
+    G --> H[Updated State]
+    H --> B
+    
+    style B fill:#e1f5fe
+    style G fill:#f3e5f5
+    style A fill:#e8f5e8
+    style H fill:#fff3e0
+```
+
+**Implementation Details**: The qualification router leverages LangGraph's `Send` primitive to spawn multiple `entityQualification` subgraphs concurrently. Each subgraph processes a batch of 15 entities independently. The router maintains state tracking (`dispatchedBatches`, `finishedBatches`) to manage a pool of up to 4 concurrent workers.
+
+**Technical Benefits**:
+- **Parallel Execution**: LangGraph's async task handling enables true concurrent processing
+- **State Management**: Shared state updates coordinate worker completion and results aggregation  
+- **Automatic Scheduling**: Router logic dispatches new batches as workers become available
+- **Batched Processing**: Reduces overhead while maintaining manageable concurrency limits
+
+### Generative UI Components
+
+This system implements LangGraph's streaming UI capabilities to generate interface components dynamically. The backend pushes structured UI events that the frontend renders in real-time using LangGraph's React SDK.
+
+```mermaid
+sequenceDiagram
+    participant LG as LangGraph Agent
+    participant ST as Streaming Layer
+    participant FE as Frontend
+    participant UI as UI Component
+    
+    LG->>ST: Push UI Event (agGridTable)
+    Note over LG,ST: { id: "table", props: { entities, results } }
+    
+    ST->>FE: Stream Custom Event
+    FE->>FE: Merge Props with Existing UI State
+    
+    FE->>UI: Render/Update Component
+    Note over UI: AG Grid Table Updates in Real-time
+    
+    LG->>ST: Push Updated UI Event
+    Note over LG,ST: New qualification results added
+    
+    ST->>FE: Stream Update
+    FE->>UI: Update Existing Component
+    Note over UI: Table rows populate progressively
+```
+
+**Technical Implementation**:
+1. **Backend Events**: Agents use LangGraph's `typedUi` helper to emit structured UI messages with stable IDs
+2. **Streaming Protocol**: Events flow through LangGraph's streaming infrastructure to the frontend
+3. **React Integration**: Frontend uses LangGraph's `useStream` hook and `LoadExternalComponent` utility
+4. **State Merging**: UI messages with matching IDs merge props automatically, enabling live updates
+
+**LangGraph Integration**: These patterns directly utilize LangGraph's core features - the parallel processing capabilities handle concurrency while the streaming UI system manages real-time interface updates. The framework's design makes it straightforward to implement both patterns without custom infrastructure.
+
+**Results**: Users see qualification progress in real-time through automatically updating tables, with no manual intervention required. The system processes large entity lists efficiently by parallelizing work across multiple agents while maintaining responsive UI feedback throughout the process.
+
