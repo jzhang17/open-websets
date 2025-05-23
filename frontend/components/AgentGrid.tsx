@@ -35,9 +35,12 @@ export default function AgentGrid({ threadId }: AgentGridProps) {
       {mounted && lastGridMessage && (
         <div className="w-full h-full">
           <LoadExternalComponent
-            // Re-mount the component whenever the theme changes so that meta
-            // (and thus the AG Grid theme) is updated correctly.
-            key={`${lastGridMessage.id}-${resolvedTheme}`}
+            /*
+             * Use a stable key so the component stays mounted while new grid
+             * updates stream in. We only remount when the user toggles the
+             * colour-scheme because AG Grid needs a fresh theme.
+             */
+            key={`agGrid-${resolvedTheme}`}
             stream={stream as any}
             message={lastGridMessage}
             fallback={<div>Loading grid...</div>}
