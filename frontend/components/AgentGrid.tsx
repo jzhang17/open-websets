@@ -1,6 +1,6 @@
 "use client";
 import React, { useMemo, useEffect } from "react";
-import { useAgentRun } from "../hooks/use-agent-run";
+import { useAgentRunCtx } from "@/app/providers/agent-run-provider";
 import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
 import { useTheme } from "next-themes";
 
@@ -8,11 +8,13 @@ export interface AgentGridProps {
   threadId: string;
 }
 
-export default function AgentGrid({ threadId }: AgentGridProps) {
-  const { ui, isLoading, error, stream } = useAgentRun({ threadId });
+export default function AgentGrid({}: AgentGridProps) {
+  // Consume the stream and UI from the AgentRunProvider context so that
+  // this component stays in sync with the rest of the app.
+  const { ui, isLoading, error, stream } = useAgentRunCtx();
   const { resolvedTheme } = useTheme();
 
-  console.log(`[AgentGrid] Rendering with useAgentRun. UI prop length: ${ui?.length}. isLoading: ${isLoading}. Error: ${error}`);
+  console.log(`[AgentGrid] Rendering with context. UI prop length: ${ui?.length}. isLoading: ${isLoading}. Error: ${error}`);
   // console.log("[AgentGrid] Full UI prop from useAgentRun:", JSON.stringify(ui));
 
   // Wait until the component is mounted on the client to avoid SSR/CSR
@@ -29,8 +31,8 @@ export default function AgentGrid({ threadId }: AgentGridProps) {
   }, [gridMessages]);
 
   useEffect(() => {
-    console.log("[AgentGrid useEffect] ui prop changed (from useAgentRun):", JSON.stringify(ui));
-    console.log("[AgentGrid useEffect] lastGridMessage changed (from useAgentRun):", JSON.stringify(lastGridMessage));
+    console.log("[AgentGrid useEffect] ui prop changed (from context):", JSON.stringify(ui));
+    console.log("[AgentGrid useEffect] lastGridMessage changed (from context):", JSON.stringify(lastGridMessage));
   }, [ui, lastGridMessage]);
 
   return (
