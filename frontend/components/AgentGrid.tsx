@@ -54,13 +54,7 @@ export default function AgentGrid({}: AgentGridProps) {
           />
         </div>
       )}
-      
-      {/* Debug info - remove this once streaming works */}
-      {mounted && (
-        <div className="text-xs text-gray-500 mt-2">
-          UI Messages: {ui.length} | Grid Message: {lastGridMessage ? "Found" : "None"}
-        </div>
-      )}
+
     </>
   );
 } 
