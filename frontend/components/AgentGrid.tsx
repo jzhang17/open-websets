@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { useAgentRun } from "../hooks/use-agent-run";
 import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
 import { useTheme } from "next-themes";
@@ -9,24 +9,28 @@ export interface AgentGridProps {
 }
 
 export default function AgentGrid({ threadId }: AgentGridProps) {
-  const { ui, send, stop, stream } = useAgentRun({ threadId });
-  const { theme, resolvedTheme } = useTheme();
+  const { ui, isLoading, error, stream } = useAgentRun({ threadId });
+  const { resolvedTheme } = useTheme();
+
+  console.log(`[AgentGrid] Rendering with useAgentRun. UI prop length: ${ui?.length}. isLoading: ${isLoading}. Error: ${error}`);
+  // console.log("[AgentGrid] Full UI prop from useAgentRun:", JSON.stringify(ui));
 
   // Wait until the component is mounted on the client to avoid SSR/CSR
   // mismatches (e.g. when the server renders with an unknown theme).
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  // Find the last message that is an agGridTable
-  const lastGridMessage = ui
-    .slice()
-    .reverse()
-    .find((msg) => msg.name === "agGridTable");
+  const gridMessages = useMemo(() => {
+    return (ui || []).filter((msg: any) => msg.name === "agGridTable" && msg.props?.entities);
+  }, [ui]);
 
-  // Debug logging to see what's being received
-  React.useEffect(() => {
-    console.log("AgentGrid UI messages:", ui);
-    console.log("Last grid message:", lastGridMessage);
+  const lastGridMessage = useMemo(() => {
+    return gridMessages.length > 0 ? gridMessages[gridMessages.length - 1] : null;
+  }, [gridMessages]);
+
+  useEffect(() => {
+    console.log("[AgentGrid useEffect] ui prop changed (from useAgentRun):", JSON.stringify(ui));
+    console.log("[AgentGrid useEffect] lastGridMessage changed (from useAgentRun):", JSON.stringify(lastGridMessage));
   }, [ui, lastGridMessage]);
 
   return (

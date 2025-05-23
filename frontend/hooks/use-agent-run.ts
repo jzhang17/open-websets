@@ -1,7 +1,7 @@
 import { useStream, type UseStreamOptions } from "@langchain/langgraph-sdk/react";
 import { uiMessageReducer } from "@langchain/langgraph-sdk/react-ui";
-import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk"; // Renaming to avoid conflict if you have a local Message type
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient, type QueryKey, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
 
 // Define the structure of the state your LangGraph agent expects and returns.
@@ -42,6 +42,9 @@ export function useLangGraphStreamAndSend({
     apiUrl = `${window.location.origin}/api/langgraph`;
   }
 
+  // Track UI state separately since streamHook.values doesn't update properly
+  const [currentUIState, setCurrentUIState] = useState<any[]>([]);
+
   const streamHookResult = useStream<AgentState, { UpdateType: AgentUpdate }>({
     apiUrl,
     assistantId: "agent",
@@ -51,21 +54,22 @@ export function useLangGraphStreamAndSend({
     streamMode: ["updates", "custom"],
     onThreadId,
     onCustomEvent: (event, options) => {
-      // Debug logging for custom events
-      console.log("🎯 Custom event received:", event);
-      
       // Properly handle UI message events
       options.mutate(prev => {
+        const prevUiRef = prev?.ui;
         const currentUI = (prev?.ui as any[]) ?? [];
-        console.log("📝 Current UI state:", currentUI);
         
         const updatedUI = uiMessageReducer(currentUI, event as any);
-        console.log("✨ Updated UI state:", updatedUI);
         
-        return {
+        const newState = {
           ...prev,
           ui: updatedUI,
         };
+        
+        // Also update our separate UI state that we'll actually use
+        setCurrentUIState(updatedUI);
+        
+        return newState;
       });
     },
   } as UseStreamOptions<AgentState, { UpdateType: AgentUpdate }>);
@@ -112,7 +116,7 @@ export function useLangGraphStreamAndSend({
 
   return {
     messages: messages ?? [],
-    ui: (stateValues as AgentState).ui ?? [],
+    ui: currentUIState, // Use our separate UI state instead of stateValues
     isLoading,
     error,
     send,
@@ -164,52 +168,60 @@ export function useAgentRun(props: UseAgentRunProps) {
     stream: streamHook,
   } = useLangGraphStreamAndSend({ threadId, initialInput, onThreadId });
 
-  // Effect to update React Query cache when the stream's state changes
+  // Keep React Query's cache in sync with the *entire* LangGraph state object.
+  // We key the effect off `streamHook.values` (which `useStream` guarantees is a new
+  // reference whenever any part of the state changes). This guarantees that
+  // React Query receives updates even if nested arrays are mutated in-place by
+  // the sdk (which would otherwise keep their reference stable).
   useEffect(() => {
-    queryClient.setQueryData<AgentQueryData>(queryKey, {
-      messages: streamMessages ?? [],
-      ui: streamUI,
+    const currentStreamState = (streamHook.values ?? {}) as AgentState;
+
+    const newDataToCache: AgentQueryData = {
+      messages: (currentStreamState.parentMessages ?? []) as LangGraphMessage[],
+      ui: currentStreamState.ui ?? [],
       isLoading: streamIsLoading,
       error: processStreamError(streamError),
-    });
-  }, [streamMessages, streamUI, streamIsLoading, streamError, queryClient, queryKey]);
+    };
+    queryClient.setQueryData<AgentQueryData>(queryKey, newDataToCache);
+
+  }, [streamHook.values, streamIsLoading, streamError, queryClient, queryKey]);
 
   // Use useQuery to read the synchronized state from the cache.
   const { data, isLoading, error } = useQuery<AgentQueryData, Error, AgentQueryData, QueryKey>({
     queryKey,
+    // queryFn will be called by React Query if data is stale or not in cache.
+    // It should reflect the latest state from the stream when called.
     queryFn: async (): Promise<AgentQueryData> => {
-      // This queryFn reflects the current state from the underlying stream hook.
-      // It's primarily for initial data population if not already in cache or for refetch scenarios.
+      const currentStreamState = (streamHook.values ?? {}) as AgentState;
       return {
-        messages: streamMessages ?? [],
-        ui: streamUI,
+        messages: (currentStreamState.parentMessages ?? []) as LangGraphMessage[],
+        ui: currentStreamState.ui ?? [], // Get UI from the stream for queryFn
         isLoading: streamIsLoading,
         error: processStreamError(streamError),
       };
     },
-    // Enable the query if threadId is present (string) or null (for new threads).
-    // The underlying useLangGraphStreamAndSend handles null threadId by passing undefined to useStream.
     enabled: true,
-    staleTime: Infinity, // Data is "live" from the stream, so never stale in React Query terms.
-    gcTime: Infinity, // Keep data in cache as long as components might be interested.
+    staleTime: Infinity, 
+    gcTime: Infinity, 
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // Data is actively pushed; initialData or queryFn's first run handles mount.
+    refetchOnMount: false, 
     refetchOnReconnect: false,
-    // initialData provides the very first state immediately, making `data` non-undefined from the start.
-    initialData: (): AgentQueryData => ({
-        messages: streamMessages ?? [],
-        ui: streamUI,
-        isLoading: streamIsLoading,
-        error: processStreamError(streamError),
-    }),
+    // initialData is for the very first render before any stream activity or if cache is empty.
+    initialData: (): AgentQueryData => {
+        const initialStreamState = (streamHook.values ?? {}) as AgentState;
+        return {
+            messages: (initialStreamState.parentMessages ?? []) as LangGraphMessage[],
+            ui: initialStreamState.ui ?? [], // Get UI from the stream for initialData
+            isLoading: streamIsLoading, // initial loading state
+            error: processStreamError(streamError), // initial error state
+        };
+    },
   });
 
   // Return the state from React Query and the interaction methods from the stream hook.
-  // Since initialData is provided and returns AgentQueryData, `data` is AgentQueryData (not undefined).
-  // `isLoading` and `error` are from React Query's own state.
   return {
-    messages: data.messages,
-    ui: data.ui,
+    messages: data?.messages ?? [], // data can be undefined initially if initialData isn't processed yet
+    ui: data?.ui ?? [],             // data can be undefined initially
     isLoading: isLoading,
     error: error,
     send: streamSend,
