@@ -12,13 +12,16 @@ import {
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS } from "./tools.js";
-import { loadChatModel } from "./utils.js";
+import { loadChatModelWithRetry as loadChatModel } from "./chatModelWithRetry.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { AIMessage, ToolMessage, HumanMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { typedUi, uiMessageReducer } from "@langchain/langgraph-sdk/react-ui/server";
+import {
+  typedUi,
+  uiMessageReducer,
+} from "@langchain/langgraph-sdk/react-ui/server";
 
 // Entities and qualification items mirror the types used in the subgraphs
 interface Entity extends ListGenEntityInterface {}
@@ -377,8 +380,8 @@ parentWorkflow.addConditionalEdges(
   "qualificationRouter" as any,
   assignQualificationWorkers,
   {
-    "__end__": "__end__"
-  }
+    __end__: "__end__",
+  },
 );
 
 parentWorkflow.addEdge(

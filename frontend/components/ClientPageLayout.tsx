@@ -17,7 +17,9 @@ export function ClientPageLayout({ children }: ClientPageLayoutProps) {
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <div
-        className="fixed top-0 left-0 z-40 h-16 transition-all duration-300 ease-in-out bg-background"
+        className={`fixed top-0 left-0 z-40 h-16 transition-all duration-300 ease-in-out bg-background ${
+          isSidebarOpen ? "hidden md:block" : ""
+        }`}
         style={{
           width: isSidebarOpen ? "calc(100% - 24rem)" : "100%",
         }}

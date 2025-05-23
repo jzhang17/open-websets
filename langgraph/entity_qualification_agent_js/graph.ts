@@ -16,7 +16,7 @@ import {
   verifyQualificationConsistencyTool,
 } from "./tools.js";
 import { type Entity } from "../list_gen_agent_js/graph.js";
-import { loadChatModel } from "./utils.js";
+import { loadChatModelWithRetry as loadChatModel } from "./chatModelWithRetry.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
