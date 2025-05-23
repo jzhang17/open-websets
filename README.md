@@ -44,8 +44,3 @@ Preview the LangGraph agents with:
 cd langgraph
 npx @langchain/langgraph-cli@latest dev
 ```
-
-### Streaming retry
-All Gemini streaming calls now retry up to 2× on "Failed to parse stream".
-Back-off: 0.5 s → 1 s (±50 % jitter). Disable by importing the raw
-`loadChatModel` instead of `loadChatModelWithRetry`.
