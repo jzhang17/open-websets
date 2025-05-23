@@ -135,10 +135,19 @@ function logRetryAttempt(
 export async function loadChatModelWithRetry(modelName: string) {
   const realModel: any = await loadChatModel(modelName);
 
+  // Disable streaming globally – force the underlying ChatGoogleGenerativeAI instance
+  // to use the non-streaming REST endpoint no matter how it was constructed.
+  if ("stream" in realModel) {
+    (realModel as any).stream = false;
+  }
+
   // Enhanced retry wrapper for generateContentStream
   async function generateContentStreamWithRetry(...args: any[]): Promise<any> {
     const [input, options = {}] = args;
     const { signal, __retryAttempt = 1, __streamingFailures = 0 } = options;
+
+    // --- Hard-disable streaming: immediately redirect to the non-streaming helper ---
+    return generateContentWithRetry(...args);
 
     // Check for abort signal
     if (signal?.aborted) {

@@ -3,9 +3,9 @@ import {
   BaseMessage,
   SystemMessage,
   HumanMessage,
-  ToolMessage,
 } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
+import { RunnableLambda } from "@langchain/core/runnables";
 import { Annotation, StateGraph } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 
@@ -597,11 +597,11 @@ function routeAfterAgentToolsNode(state: AppState): string {
 
 // Graph definition
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
-  .addNode("agentNode", agentNode)
-  .addNode("agentToolsNode", wrappedAgentToolsNode)
+  .addNode("agentNode", RunnableLambda.from(agentNode).withConfig({ tags: ["nostream"] }))
+  .addNode("agentToolsNode", RunnableLambda.from(wrappedAgentToolsNode).withConfig({ tags: ["nostream"] }))
   .addNode("programmaticVerificationNode", programmaticVerificationNode)
-  .addNode("verificationAgentNode", verificationAgentNode)
-  .addNode("verificationToolsNode", wrappedVerificationToolsNode);
+  .addNode("verificationAgentNode", RunnableLambda.from(verificationAgentNode).withConfig({ tags: ["nostream"] }))
+  .addNode("verificationToolsNode", RunnableLambda.from(wrappedVerificationToolsNode).withConfig({ tags: ["nostream"] }));
 
 // Define edges on the fully typed workflow object
 workflow.addEdge("__start__", "agentNode");

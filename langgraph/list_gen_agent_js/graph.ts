@@ -2,6 +2,7 @@ import { AIMessage, BaseMessage, ToolMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { Annotation, StateGraph } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { RunnableLambda } from "@langchain/core/runnables";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
 import { TOOLS, addEntityIndexes } from "./tools.js";
@@ -202,8 +203,8 @@ function routeModelOutput(state: AppState): string {
 // https://langchain-ai.github.io/langgraphjs/concepts/low_level/#messagesannotation
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
   // Define the two nodes we will cycle between
-  .addNode("callModel", callModel)
-  .addNode("tools", listGenToolsNode)
+  .addNode("callModel", RunnableLambda.from(callModel).withConfig({ tags: ["nostream"] }))
+  .addNode("tools", RunnableLambda.from(listGenToolsNode).withConfig({ tags: ["nostream"] }))
   // Set the entrypoint as `callModel`
   // This means that this node is the first one called
   .addEdge("__start__", "callModel")
