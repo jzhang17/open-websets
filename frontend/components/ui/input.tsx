@@ -168,14 +168,15 @@ function Input({
   };
 
   const sharedClassName = cn(
-    "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-w-0 rounded-md border bg-transparent px-3 py-1 pr-10 text-md shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-base",
+    "relative z-1 file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground bg-white dark:bg-neutral-950 border-input min-w-0 rounded-md border px-3 py-1 pr-10 text-md shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-base",
     "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
     "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+    "flex items-center",
     className,
   );
 
   return (
-    <form onSubmit={handleSubmit} className="relative flex items-center w-full">
+    <form onSubmit={handleSubmit} className="rainbow-input relative flex items-center w-full">
       {multiline ? (
         <textarea
           ref={textareaRef}
@@ -185,6 +186,7 @@ function Input({
           className={cn(
             sharedClassName,
             "w-full resize-none overflow-hidden whitespace-pre-wrap break-words py-[11px]",
+            "!flex-col !items-start",
           )}
           rows={1}
           style={{
@@ -199,7 +201,7 @@ function Input({
           value={displayValue}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          className={cn(sharedClassName, "flex h-9 w-full")}
+          className={cn(sharedClassName, "h-9 w-full")}
           disabled={loading || props.disabled}
           {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
         />
@@ -207,7 +209,7 @@ function Input({
       <button
         ref={buttonRef}
         type="submit"
-        className="absolute inset-y-0 right-0 flex items-center justify-center w-10 text-muted-foreground hover:text-foreground"
+        className="absolute inset-y-0 right-0 z-10 flex items-center justify-center w-10 text-muted-foreground hover:text-foreground"
         aria-label="Submit"
         disabled={loading || props.disabled}
       >

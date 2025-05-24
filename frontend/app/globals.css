@@ -41,6 +41,16 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Rainbow colors */
+  --color-1: hsl(var(--color-1));
+  --color-2: hsl(var(--color-2));
+  --color-3: hsl(var(--color-3));
+  --color-4: hsl(var(--color-4));
+  --color-5: hsl(var(--color-5));
+  
+  /* Animation */
+  --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
 }
 
 :root {
@@ -76,6 +86,13 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Rainbow colors for animation */
+  --color-1: 0 100% 63%;
+  --color-2: 270 100% 63%;
+  --color-3: 210 100% 63%;
+  --color-4: 195 100% 63%;
+  --color-5: 90 100% 63%;
 }
 
 .dark {
@@ -143,4 +160,35 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+}
+
+/* Rainbow animation keyframes */
+@keyframes rainbow {
+  0% { background-position: 0%; }
+  100% { background-position: 200%; }
+}
+
+/* Rainbow input styles */
+.rainbow-input {
+  position: relative;
+}
+
+.rainbow-input::before {
+  content: '';
+  position: absolute;
+  bottom: -5%;
+  left: 2%;
+  z-index: 0;
+  height: 15%;
+  width: 96%;
+  background: linear-gradient(90deg, 
+    hsl(var(--color-1)), 
+    hsl(var(--color-5)), 
+    hsl(var(--color-3)), 
+    hsl(var(--color-4)), 
+    hsl(var(--color-2))
+  );
+  background-size: 200% 100%;
+  animation: rainbow 2s infinite linear;
+  filter: blur(0.8rem);
 }
