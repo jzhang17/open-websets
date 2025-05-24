@@ -337,7 +337,7 @@ parentWorkflow.addNode("agent", callAgentModel);
 parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 
 // Subgraphs handle list generation and entity qualification
-parentWorkflow.addNode("listGeneration", listGenerationGraph);
+parentWorkflow.addNode("listGeneration", listGenerationGraph.withConfig({ tags: ["nostream"] }));
 parentWorkflow.addNode(
   "qualificationRouter",
   async (state: ParentAppState, config: RunnableConfig) => {
@@ -383,7 +383,7 @@ parentWorkflow.addNode(
     return {};
   }
 );
-parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);
+parentWorkflow.addNode("entityQualification", entityQualificationGraph.withConfig({ tags: ["nostream"] }) as any);
 
 // Workflow edges
 parentWorkflow.addEdge(START, "agent" as any);

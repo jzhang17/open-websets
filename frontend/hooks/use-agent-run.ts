@@ -22,6 +22,7 @@ export interface AgentState {
 export interface AgentUpdate {
   parentMessages: LangGraphMessage[] | LangGraphMessage; // Can be a single message or an array
   ui?: any[] | any;
+  subgraph?: boolean; // Control whether to run as a subgraph
 }
 
 export interface UseAgentRunProps {
@@ -85,6 +86,7 @@ export function useLangGraphStreamAndSend({
       submit(
         {
           parentMessages: [newHumanMessage],
+          subgraph: false,
         },
         {
           optimisticValues: (prev: Readonly<AgentState> | undefined): Partial<AgentState> => {
