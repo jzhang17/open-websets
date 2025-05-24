@@ -282,19 +282,22 @@ export function MessageInput({
           </Button>
         )}
         {isGenerating && stop ? (
-          <div className="relative">
+          <div className="group relative">
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="h-8 w-8 bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100 hover:border-orange-300 hover:scale-105 transition-all dark:bg-orange-950/50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-900/50 dark:hover:border-orange-700"
+              className="h-8 w-8 bg-orange-50 border-orange-200 text-orange-600 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all dark:bg-orange-950/50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-red-950/50 dark:hover:border-red-800 dark:hover:text-red-400"
               aria-label="Stop generating"
               onClick={stop}
             >
-              <Square className="h-3 w-3" fill="currentColor" />
+              <Loader2 className="h-3 w-3 animate-spin group-hover:hidden" />
+              <Square className="h-3 w-3 fill-current hidden group-hover:block" />
             </Button>
-            <div className="absolute inset-0 rounded-md bg-orange-500/10 animate-pulse pointer-events-none" />
-            <div className="absolute -inset-1 rounded-lg bg-orange-500/5 animate-ping pointer-events-none" />
+            {/* Tooltip */}
+            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-background border border-border rounded text-xs text-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-30">
+              Stop request
+            </div>
           </div>
         ) : (
           <Button

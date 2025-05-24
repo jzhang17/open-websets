@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Building2, BookOpen, Newspaper } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
+import { OptionsDrawer } from "@/components/OptionsDrawer";
 
 export default function Home() {
 
@@ -47,6 +48,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+      
+      <OptionsDrawer />
     </div>
   );
 }

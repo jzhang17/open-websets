@@ -11,8 +11,6 @@ The system handles complex multi-dimensional searches across thousands of entiti
 
 This project recreates those proven architectural patterns using LangGraph's agent orchestration framework, implementing similar verification-driven workflows through distributed processing and real-time interface generation.
 
----
-
 This repository provides a Next.js based interface and several LangGraph agents written in TypeScript.
 
 ## Project structure
@@ -149,4 +147,6 @@ sequenceDiagram
 **LangGraph Integration**: These patterns directly utilize LangGraph's core features - the parallel processing capabilities handle concurrency while the streaming UI system manages real-time interface updates. The framework's design makes it straightforward to implement both patterns without custom infrastructure.
 
 **Results**: Users see qualification progress in real-time through automatically updating tables, with no manual intervention required. The system processes large entity lists efficiently by parallelizing work across multiple agents while maintaining responsive UI feedback throughout the process.
+
+## Limitations
 
