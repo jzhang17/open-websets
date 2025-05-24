@@ -7,11 +7,14 @@ import { OptionsDrawer } from "@/components/OptionsDrawer";
 export default function Home() {
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <div className="w-full">
+    <div className="flex flex-col h-screen bg-background text-foreground" style={{
+      height: '100dvh', // Use dynamic viewport height for better mobile support
+      minHeight: '100vh', // Fallback for browsers that don't support dvh
+    }}>
+      <div className="w-full flex-shrink-0">
         <AppHeader />
       </div>
-      <div className="flex items-center justify-center flex-1 w-full px-4 -mt-40">
+      <div className="flex items-center justify-center flex-1 w-full px-4 -mt-40 overflow-hidden">
         <div className="text-center max-w-lg w-full">
           <h1 className="text-2xl font-bold tracking-tight">
             Find your (almost) perfect list
@@ -49,7 +52,9 @@ export default function Home() {
         </div>
       </div>
       
-      <OptionsDrawer />
+      <div className="flex-shrink-0">
+        <OptionsDrawer />
+      </div>
     </div>
   );
 }
