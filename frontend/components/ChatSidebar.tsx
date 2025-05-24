@@ -18,6 +18,7 @@ export function ChatSidebar({
     messages: agentMessages,
     isLoading: isGenerating,
     send: sendToAgent,
+    stop: stopAgent,
   } = useAgentRunCtx();
   const [input, setInput] = useState("");
 
@@ -78,6 +79,7 @@ export function ChatSidebar({
                 value={input}
                 onChange={handleInputChange}
                 isGenerating={isGenerating}
+                stop={stopAgent}
                 placeholder="Type your message..."
               />
             </form>

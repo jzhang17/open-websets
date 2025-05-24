@@ -2,6 +2,17 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jzhang17/open-websets)
 
+
+## Inspired by Exa's [Websets](https://websets.exa.ai/)
+
+This project is inspired by the capability of [Exa's Websets](https://websets.exa.ai/), which enables scalable structured data extraction from unstructured web sources. Websets processes queries like "full-stack engineers in SF with design experience at AI startups" and returns tabular data with LinkedIn profiles, GitHub repositories, graduation dates, and seniority classifications—each result verified by autonomous agents against the specified criteria.
+
+The system handles complex multi-dimensional searches across thousands of entities, such as extracting YC company data with batch information, funding status, and industry classifications, while maintaining data accuracy through systematic verification workflows. Their architecture employs agent-based validation pipelines and automated enrichment processes that consistently deliver structured outputs from ambiguous natural language inputs.
+
+This project recreates those proven architectural patterns using LangGraph's agent orchestration framework, implementing similar verification-driven workflows through distributed processing and real-time interface generation.
+
+---
+
 This repository provides a Next.js based interface and several LangGraph agents written in TypeScript.
 
 ## Project structure
@@ -9,6 +20,18 @@ This repository provides a Next.js based interface and several LangGraph agents 
 - `frontend/` – web client built with Next.js
 - `langgraph/` – reusable LangGraph agents
 - `documentations/` – crawled markdown documentation (read‑only)
+
+## Technology Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Frontend Framework | Next.js 15.3.2 | Server-side rendering and React 19 integration |
+| Agent Orchestration | LangGraph | Graph-based workflow management |
+| Chat Models | Google Gemini | Language model integration |
+| External APIs | Exa AI, Search1API | Web search and content crawling |
+| UI Components | Radix UI, Tailwind CSS | Component library and styling |
+| Type Safety | TypeScript | Static typing across frontend and backend |
+| State Management | React Context, LangGraph State | Client and agent state coordination |
 
 ## Setup
 

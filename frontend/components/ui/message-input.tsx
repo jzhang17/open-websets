@@ -282,20 +282,30 @@ export function MessageInput({
           </Button>
         )}
         {isGenerating && stop ? (
-          <Button
-            type="button"
-            size="icon"
-            className="h-8 w-8"
-            aria-label="Stop generating"
-            onClick={stop}
-          >
-            <Square className="h-3 w-3 animate-pulse" fill="currentColor" />
-          </Button>
+          <div className="relative">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100 hover:border-orange-300 hover:scale-105 transition-all dark:bg-orange-950/50 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-900/50 dark:hover:border-orange-700"
+              aria-label="Stop generating"
+              onClick={stop}
+            >
+              <Square className="h-3 w-3" fill="currentColor" />
+            </Button>
+            <div className="absolute inset-0 rounded-md bg-orange-500/10 animate-pulse pointer-events-none" />
+            <div className="absolute -inset-1 rounded-lg bg-orange-500/5 animate-ping pointer-events-none" />
+          </div>
         ) : (
           <Button
             type="submit"
             size="icon"
-            className="h-8 w-8 transition-opacity"
+            className={cn(
+              "h-8 w-8 transition-all duration-200",
+              props.value === "" || isGenerating
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:scale-105 hover:bg-primary/90 hover:shadow-lg"
+            )}
             aria-label="Send message"
             disabled={props.value === "" || isGenerating}
           >
