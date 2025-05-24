@@ -204,7 +204,7 @@ function routeModelOutput(state: AppState): string {
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
   // Define the two nodes we will cycle between
   .addNode("callModel", RunnableLambda.from(callModel).withConfig({ tags: ["nostream"] }))
-  .addNode("tools", RunnableLambda.from(listGenToolsNode).withConfig({ tags: ["nostream"] }))
+  .addNode("tools", RunnableLambda.from(listGenToolsNode).withConfig({ tags: ["langsmith:hidden"] }))
   // Set the entrypoint as `callModel`
   // This means that this node is the first one called
   .addEdge("__start__", "callModel")
