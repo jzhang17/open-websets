@@ -597,11 +597,11 @@ function routeAfterAgentToolsNode(state: AppState): string {
 
 // Graph definition
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
-  .addNode("agentNode", RunnableLambda.from(agentNode).withConfig({ tags: ["nostream"] }))
-  .addNode("agentToolsNode", RunnableLambda.from(wrappedAgentToolsNode).withConfig({ tags: ["nostream"] }))
+  .addNode("agentNode", RunnableLambda.from(agentNode))
+  .addNode("agentToolsNode", RunnableLambda.from(wrappedAgentToolsNode))
   .addNode("programmaticVerificationNode", programmaticVerificationNode)
-  .addNode("verificationAgentNode", RunnableLambda.from(verificationAgentNode).withConfig({ tags: ["nostream"] }))
-  .addNode("verificationToolsNode", RunnableLambda.from(wrappedVerificationToolsNode).withConfig({ tags: ["nostream"] }));
+  .addNode("verificationAgentNode", RunnableLambda.from(verificationAgentNode))
+  .addNode("verificationToolsNode", RunnableLambda.from(wrappedVerificationToolsNode));
 
 // Define edges on the fully typed workflow object
 workflow.addEdge("__start__", "agentNode");

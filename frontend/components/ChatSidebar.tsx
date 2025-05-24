@@ -57,11 +57,13 @@ export function ChatSidebar({
           </div>
           <div className="flex-grow overflow-y-auto min-h-0">
             <MessageList
-              messages={agentMessages.map((msg) => ({
-                id: msg.id!,
-                role: msg.type === "human" ? "user" : "assistant",
-                content: msg.content as unknown as string,
-              }))}
+              messages={agentMessages
+                .filter((msg) => msg.type !== "tool") // Filter out tool messages
+                .map((msg) => ({
+                  id: msg.id!,
+                  role: msg.type === "human" ? "user" : "assistant",
+                  content: msg.content as unknown as string,
+                }))}
               isTyping={isGenerating}
             />
           </div>
