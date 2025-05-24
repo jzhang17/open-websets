@@ -15,10 +15,13 @@ export function ClientPageLayout({ children }: ClientPageLayoutProps) {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground" style={{
-      height: '100dvh',
-      minHeight: '100vh',
-    }}>
+    <div
+      className="flex flex-col h-screen bg-background text-foreground"
+      style={{
+        height: "calc(var(--vh, 1vh) * 100)",
+        minHeight: "100vh",
+      }}
+    >
       <div
         className={`fixed top-0 left-0 z-40 h-16 transition-all duration-300 ease-in-out bg-background ${
           isSidebarOpen ? "hidden md:block" : ""
@@ -46,10 +49,7 @@ export function ClientPageLayout({ children }: ClientPageLayoutProps) {
         </main>
       </div>
 
-      <ChatSidebar
-        isOpen={isSidebarOpen}
-        toggleSidebar={toggleSidebar}
-      />
+      <ChatSidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
     </div>
   );
 }

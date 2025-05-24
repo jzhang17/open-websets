@@ -5,12 +5,14 @@ import { AppHeader } from "@/components/AppHeader";
 import { OptionsDrawer } from "@/components/OptionsDrawer";
 
 export default function Home() {
-
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground" style={{
-      height: '100dvh', // Use dynamic viewport height for better mobile support
-      minHeight: '100vh', // Fallback for browsers that don't support dvh
-    }}>
+    <div
+      className="flex flex-col h-screen bg-background text-foreground"
+      style={{
+        height: "calc(var(--vh, 1vh) * 100)",
+        minHeight: "100vh",
+      }}
+    >
       <div className="w-full flex-shrink-0">
         <AppHeader />
       </div>
@@ -51,7 +53,7 @@ export default function Home() {
           </div>
         </div>
       </div>
-      
+
       <div className="flex-shrink-0">
         <OptionsDrawer />
       </div>
