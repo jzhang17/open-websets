@@ -7,14 +7,17 @@ import { OptionsDrawer } from "@/components/OptionsDrawer";
 export default function Home() {
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground" style={{
-      height: '100dvh', // Use dynamic viewport height for better mobile support
-      minHeight: '100vh', // Fallback for browsers that don't support dvh
-    }}>
+    <div
+      className="flex flex-col h-screen bg-background text-foreground"
+      style={{
+        height: "100svh", // Fit visible viewport including mobile Safari address bar
+        minHeight: "100vh", // Fallback when svh is unsupported
+      }}
+    >
       <div className="w-full flex-shrink-0">
         <AppHeader />
       </div>
-      <div className="flex items-center justify-center flex-1 w-full px-4 -mt-40 overflow-hidden">
+      <div className="flex items-center justify-center flex-1 w-full px-4 overflow-hidden">
         <div className="text-center max-w-lg w-full">
           <h1 className="text-2xl font-bold tracking-tight">
             Find your (almost) perfect list
