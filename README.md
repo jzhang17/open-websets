@@ -1,11 +1,11 @@
 # Open Websets
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jzhang17/open-websets)
+<a href="https://deepwiki.com/jzhang17/open-websets" target="_blank" rel="noopener noreferrer"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 
 
-## Inspired by Exa's [Websets](https://websets.exa.ai/)
+## Inspired by Exa's <a href="https://websets.exa.ai/" target="_blank" rel="noopener noreferrer">Websets</a>
 
-This project is inspired by the capability of [Exa's Websets](https://websets.exa.ai/), which enables scalable structured data extraction from unstructured web sources. Websets processes queries like "full-stack engineers in SF with design experience at AI startups" and returns tabular data with LinkedIn profiles, GitHub repositories, graduation dates, and seniority classifications—each result verified by autonomous agents against the specified criteria.
+This project is inspired by the capability of <a href="https://websets.exa.ai/" target="_blank" rel="noopener noreferrer">Exa's Websets</a>, which enables scalable structured data extraction from unstructured web sources. Websets processes queries like "full-stack engineers in SF with design experience at AI startups" and returns tabular data with LinkedIn profiles, GitHub repositories, graduation dates, and seniority classifications—each result verified by autonomous agents against the specified criteria.
 
 The system handles complex multi-dimensional searches across thousands of entities, such as extracting YC company data with batch information, funding status, and industry classifications, while maintaining data accuracy through systematic verification workflows. Their architecture employs agent-based validation pipelines and automated enrichment processes that consistently deliver structured outputs from ambiguous natural language inputs.
 
@@ -25,13 +25,14 @@ This repository provides a Next.js based interface and several LangGraph agents 
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Frontend Framework | Next.js 15.3.2 | Server-side rendering and React 19 integration |
+| Frontend Framework | Next.js 15.3.2 | React 19 framework for web applications |
 | Agent Orchestration | LangGraph | Graph-based workflow management |
 | Chat Models | Google Gemini | Language model integration |
-| External APIs | Exa AI, Search1API | Web search and content crawling |
-| UI Components | Radix UI, Tailwind CSS | Component library and styling |
+| Tool APIs | Exa AI, Search1API | Web search and content crawling |
+| UI Components | Shadcn, Tailwind CSS | Component library and styling |
 | Type Safety | TypeScript | Static typing across frontend and backend |
 | State Management | React Context, LangGraph State | Client and agent state coordination |
+| Hosting Platforms | Vercel, LangGraph Platform | Frontend hosting and backend agent deployment |
 
 ## Setup
 
