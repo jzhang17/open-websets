@@ -14,6 +14,7 @@ export async function loadChatModel(fullySpecifiedName: string) {
       platformType: "gai",
       maxReasoningTokens: 0,
       disableStreaming: true,
+      streaming: false,
     });
   }
   const index = fullySpecifiedName.indexOf("/");

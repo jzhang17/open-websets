@@ -22,8 +22,17 @@ function logRetryAttempt(attempt: number): void {
 export async function loadChatModelWithRetry(modelName: string) {
   const realModel: any = await loadChatModel(modelName);
 
-  if ("disableStreaming" in realModel && !realModel.disableStreaming) {
+  // Ensure streaming is completely disabled
+  if ("disableStreaming" in realModel) {
     (realModel as any).disableStreaming = true;
+  }
+  if ("streaming" in realModel) {
+    (realModel as any).streaming = false;
+  }
+  // Also set on the binding configuration if it exists
+  if (realModel.config) {
+    realModel.config.disableStreaming = true;
+    realModel.config.streaming = false;
   }
 
   async function generateContentWithRetry(...args: any[]): Promise<any> {

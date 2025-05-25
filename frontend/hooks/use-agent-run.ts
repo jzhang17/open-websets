@@ -51,6 +51,8 @@ export function useLangGraphStreamAndSend({
     // Add custom stream mode to receive UI events
     streamMode: ["messages", "custom"],
     subgraph: false,
+    reconnect: true,
+    reconnectDelay: 1000,
     onThreadId,
     onCustomEvent: (event, options) => {
       if (process.env.NODE_ENV === 'development') {

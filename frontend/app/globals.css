@@ -149,6 +149,20 @@
     min-height: 100vh; /* Fallback for browsers that don't support dvh */
     min-height: 100dvh; /* Dynamic viewport height - excludes browser UI */
   }
+  
+  .animate-typing-dot-bounce {
+    animation: typing-dot-bounce 1.4s ease-in-out infinite;
+  }
+  
+  .animate-typing-dot-bounce-delay-1 {
+    animation: typing-dot-bounce 1.4s ease-in-out infinite;
+    animation-delay: 0.09s;
+  }
+  
+  .animate-typing-dot-bounce-delay-2 {
+    animation: typing-dot-bounce 1.4s ease-in-out infinite;
+    animation-delay: 0.18s;
+  }
 }
 
 @layer base {
@@ -179,6 +193,18 @@
 @keyframes rainbow {
   0% { background-position: 0%; }
   100% { background-position: 200%; }
+}
+
+/* Typing indicator animation keyframes */
+@keyframes typing-dot-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
 }
 
 /* Rainbow input styles */
