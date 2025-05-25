@@ -340,7 +340,33 @@ parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 parentWorkflow.addNode("listGeneration", listGenerationGraph);
 parentWorkflow.addNode(
   "qualificationRouter",
-  async (state: ParentAppState, _config: RunnableConfig) => {
+  async (state: ParentAppState, config: RunnableConfig) => {
+    // Emit UI update for AG Grid table using custom events
+    const ui = typedUi(config);
+    
+    /*
+     * Stream updates to the same UI message so the client component can
+     * update in-place instead of creating a brand-new message every time.
+     * By supplying a stable `id` and `merge: true`, successive calls will
+     * merge their `props` with the existing message and emit a `custom`
+     * event to the browser.  The React side then receives one UI message
+     * whose props keep changing – perfect for live-updating AG Grid.
+     */
+    ui.push(
+      {
+        id: "agGridTableMessage", // any stable identifier
+        name: "agGridTable",
+        props: {
+          entities: state.entities,
+          qualificationSummary: state.qualificationSummary,
+        },
+      },
+      {
+        // Tell LangGraph to merge with the existing UI message (if any)
+        merge: true,
+      },
+    );
+    
     // Check if all entities are processed and emit a completion message
     const batchSize = 15;
     const totalEntities = state.entities?.length ?? 0;
@@ -354,26 +380,6 @@ parentWorkflow.addNode(
     }
     
     // For intermediate updates, don't return UI in state - the ui.push() already emitted the event
-    return {};
-  }
-);
-parentWorkflow.addNode(
-  "qualificationUiUpdate",
-  async (state: ParentAppState, config: RunnableConfig) => {
-    const ui = typedUi(config);
-
-    ui.push(
-      {
-        id: "agGridTableMessage",
-        name: "agGridTable",
-        props: {
-          entities: state.entities,
-          qualificationSummary: state.qualificationSummary,
-        },
-      },
-      { merge: true }
-    );
-
     return {};
   }
 );
@@ -396,11 +402,6 @@ parentWorkflow.addConditionalEdges(
 
 parentWorkflow.addEdge(
   "entityQualification" as any,
-  "qualificationUiUpdate" as any,
-);
-
-parentWorkflow.addEdge(
-  "qualificationUiUpdate" as any,
   "qualificationRouter" as any,
 );
 
