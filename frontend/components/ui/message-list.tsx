@@ -39,7 +39,7 @@ export function MessageList({
           />
         );
       })}
-      {isTyping && <TypingIndicator />}
+      <TypingIndicator />
     </div>
   );
 }
