@@ -1,4 +1,5 @@
-import { useStream, type UseStreamOptions } from "@langchain/langgraph-sdk/react";
+import { type UseStreamOptions } from "@langchain/langgraph-sdk/react";
+import { useRecoverableStream } from "./use-recoverable-stream";
 import { uiMessageReducer } from "@langchain/langgraph-sdk/react-ui";
 import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk";
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
@@ -43,7 +44,7 @@ export function useLangGraphStreamAndSend({
     apiUrl = `${window.location.origin}/api/langgraph`;
   }
 
-  const streamHookResult = useStream<AgentState, { UpdateType: AgentUpdate }>({
+  const streamHookResult = useRecoverableStream<AgentState, { UpdateType: AgentUpdate }>({
     apiUrl,
     assistantId: "agent",
     threadId: threadId ?? undefined,

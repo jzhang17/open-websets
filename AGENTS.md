@@ -23,6 +23,13 @@
 │   │   ├── HomeLink.tsx
 │   │   └── ui/
 │   ├── components.json
+│   ├── hooks/
+│   │   ├── use-agent-run.ts
+│   │   ├── use-autosize-textarea.ts
+│   │   ├── use-mobile.ts
+│   │   ├── use-audio-recording.ts
+│   │   ├── use-copy-to-clipboard.ts
+│   │   └── use-recoverable-stream.ts
 │   ├── eslint.config.mjs
 │   ├── lib/
 │   ├── next.config.ts
