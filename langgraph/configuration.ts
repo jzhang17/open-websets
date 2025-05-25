@@ -27,6 +27,6 @@ export function ensureConfiguration(
     systemPromptTemplate: configurable.systemPromptTemplate ?? "",
     model:
       configurable.model ??
-      "google-genai/models/gemini-2.5-flash-preview-04-17",
+      "google-genai/models/gemini-2.5-flash-preview-05-20",
   };
 }
