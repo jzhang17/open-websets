@@ -11,38 +11,40 @@ export default function Home() {
       <div className="w-full flex-shrink-0">
         <AppHeader />
       </div>
-      <div className="flex items-center justify-center flex-1 w-full px-4 -mt-40 overflow-hidden">
-        <div className="text-center max-w-lg w-full">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Find your (almost) perfect list
-          </h1>
+      <div className="flex items-center justify-center flex-1 w-full px-4 py-8">
+        <div className="text-center max-w-lg w-full space-y-6">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight">
+              Find your (almost) perfect list
+            </h1>
+          </div>
 
-          <Tabs defaultValue="people" className="w-full mt-4">
-            <TabsList className="grid grid-cols-4 w-full">
-              <TabsTrigger value="people">
-                <Users />
-                People
-              </TabsTrigger>
-              <TabsTrigger value="companies">
-                <Building2 />
-                Companies
-              </TabsTrigger>
-              <TabsTrigger value="research">
-                <BookOpen />
-                Papers
-              </TabsTrigger>
-              <TabsTrigger value="articles">
-                <Newspaper />
-                Articles
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="space-y-2">
+            <Tabs defaultValue="people" className="w-full">
+              <TabsList className="grid grid-cols-4 w-full">
+                <TabsTrigger value="people">
+                  <Users />
+                  People
+                </TabsTrigger>
+                <TabsTrigger value="companies">
+                  <Building2 />
+                  Companies
+                </TabsTrigger>
+                <TabsTrigger value="research">
+                  <BookOpen />
+                  Papers
+                </TabsTrigger>
+                <TabsTrigger value="articles">
+                  <Newspaper />
+                  Articles
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-          <div className="mt-4 flex flex-col items-center space-y-4">
             <Input
               name="query"
               placeholder="Describe what you're looking for..."
-              className="w-full text-lg bg-background border-input"
+              className="w-full text-lg bg-background border-input h-12"
               multiline={true}
             />
           </div>
