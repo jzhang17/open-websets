@@ -101,8 +101,8 @@ export function AudioVisualizer({
       source.connect(analyser);
 
       draw();
-    } catch (error) {
-      console.error("Error starting visualization:", error);
+    } catch {
+      // Error starting visualization
     }
   };
 

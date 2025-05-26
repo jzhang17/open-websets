@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useEffect, useState, useCallback } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { useAgentRunCtx } from "@/app/providers/agent-run-provider";
 import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
 import { useTheme } from "next-themes";
@@ -12,7 +12,7 @@ export interface AgentGridProps {
 function AgentGridComponent({}: AgentGridProps) {
   // Consume the stream and UI from the AgentRunProvider context so that
   // this component stays in sync with the rest of the app.
-  const { ui, isLoading, error, stream } = useAgentRunCtx();
+  const { ui, isLoading, stream } = useAgentRunCtx();
   const { resolvedTheme } = useTheme();
 
   // Wait until the component is mounted on the client to avoid SSR/CSR
@@ -32,11 +32,9 @@ function AgentGridComponent({}: AgentGridProps) {
     return gridMessages.length > 0 ? gridMessages[gridMessages.length - 1] : null;
   }, [gridMessages]);
 
-  // Only log when there are actual changes, not on every render
+  // Track changes if needed in the future
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[AgentGrid] UI updated: ${ui?.length || 0} items, grid messages: ${gridMessages.length}, loading: ${isLoading}`);
-    }
+    // Intentionally left blank - side effects can be added here if required
   }, [ui?.length, gridMessages.length, isLoading]);
 
   const themeMetadata = useMemo(() => ({

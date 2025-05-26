@@ -43,7 +43,7 @@ export function useAudioRecording({
         onTranscriptionComplete?.(text);
       }
     } catch (error) {
-      console.error("Error transcribing audio:", error);
+      // Error transcribing audio
     } finally {
       setIsTranscribing(false);
       setIsListening(false);
@@ -69,7 +69,7 @@ export function useAudioRecording({
         // Begin recording
         activeRecordingRef.current = recordAudio(stream);
       } catch (error) {
-        console.error("Error recording audio:", error);
+        // Error recording audio
         setIsListening(false);
         setIsRecording(false);
         if (audioStream) {

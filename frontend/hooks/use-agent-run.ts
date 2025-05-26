@@ -55,18 +55,12 @@ export function useLangGraphStreamAndSend({
     reconnectDelay: 1000,
     onThreadId,
     onCustomEvent: (event, options) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[useStream] Custom event received:", (event as any)?.type, (event as any)?.name || 'unnamed');
-      }
       // Handle UI message events using the mutate function following the LangGraph documentation
       options.mutate(prev => {
         // Use the built-in uiMessageReducer to handle UI state updates properly
         const currentUI = prev?.ui ?? [];
         const updatedUI = uiMessageReducer(currentUI, event as any);
-        if (process.env.NODE_ENV === 'development' && currentUI.length !== updatedUI.length) {
-          console.log("[useStream] UI updated from", currentUI.length, "to", updatedUI.length, "items");
-        }
-
+        
         return {
           ...prev,
           ui: updatedUI,
@@ -147,11 +141,9 @@ export function useAgentRun(props: UseAgentRunProps) {
   // For now, just directly return the stream hook to test if React Query was the issue
   const streamHook = useLangGraphStreamAndSend(props);
   
-  // Add debug logging only in development and only when UI actually changes
+  // Track UI changes if needed in the future
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[useAgentRun] UI state updated:", streamHook.ui?.length || 0, "items");
-    }
+    // Intentionally left blank - side effects can be added here if required
   }, [streamHook.ui?.length]);
   
   return {

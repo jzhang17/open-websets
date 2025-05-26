@@ -60,10 +60,8 @@ function Input({
 
   const {
     threadId,
-    messages: agentMessages,
     isLoading: agentIsLoading,
     send: sendToAgent,
-    error: agentError,
   } = useAgentRunCtx();
 
   React.useEffect(() => {
@@ -72,17 +70,6 @@ function Input({
     }
   }, [threadId, router]);
 
-  React.useEffect(() => {
-    if (agentMessages.length > 0) {
-      console.log("Agent messages:", agentMessages);
-    }
-  }, [agentMessages]);
-
-  React.useEffect(() => {
-    if (agentError) {
-      console.error("Agent run error:", agentError);
-    }
-  }, [agentError]);
 
   const isControlled = propValue !== undefined;
   const displayValue = isControlled ? propValue : internalValue;
