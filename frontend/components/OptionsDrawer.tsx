@@ -84,9 +84,21 @@ const Feature = ({
   return (
     <div
       className={cn(
-        "flex flex-col lg:border-r py-6 sm:py-10 relative group/feature dark:border-neutral-800",
+        "flex flex-col py-6 sm:py-10 relative group/feature dark:border-neutral-800",
+        // Large screens (4 columns): right border for all except last in row
+        "lg:border-r",
+        // Medium screens (2 columns): right border for even indices (0,2,4,6)
+        "sm:max-lg:border-r sm:max-lg:[&:nth-child(2n)]:border-r-0",
+        // Small screens (1 column): no right borders
+        "max-sm:border-r-0",
+        // Left borders
         (index === 0 || index === 4) && "lg:border-l dark:border-neutral-800",
-        index < 4 && "lg:border-b dark:border-neutral-800"
+        (index % 2 === 0) && "sm:max-lg:border-l dark:border-neutral-800",
+        "max-sm:border-l dark:border-neutral-800",
+        // Bottom borders
+        index < 4 && "lg:border-b dark:border-neutral-800",
+        index < 6 && "sm:max-lg:border-b dark:border-neutral-800",
+        index < 7 && "max-sm:border-b dark:border-neutral-800"
       )}
     >
       {index < 4 && (
