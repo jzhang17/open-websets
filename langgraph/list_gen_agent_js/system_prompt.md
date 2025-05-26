@@ -32,7 +32,8 @@ All the information in your report should be based on the entities gathered from
 
 1. Analyze the information available in the current conversation, including user messages and previous tool outputs.
 2. Identify potential entities from this information and **focus on entity type appropriateness and topical relevance**. Any qualification criteria provided should be used primarily to **guide your search strategy** rather than to strictly filter entities during extraction. Your goal is to gather a comprehensive list of entities that are relevant to the topic area, erring on the side of inclusion rather than exclusion. Use the **full name** of each entity when recording it—if extracting research papers, capture the complete paper title itself rather than the associated institution or publisher.
-3. Once you have identified a list of relevant entities from your search, you MUST use the "extract_entities" tool to report them. Provide the entities as a list of objects, each with a `name` and `url` field. **Do not include the same entity twice.**
+3. **Handle List URLs**: If you encounter a URL that appears to contain a list of entities rather than information about a single entity (e.g., "Y Combinator's list of hardware startups", "Top 100 AI companies", "Directory of fintech firms"), you MUST use the crawling tool to access that URL and extract all the individual entities within that list. Do not treat the list itself as a single entity—instead, extract each individual entity mentioned in the list.
+4. Once you have identified a list of relevant entities from your search, you MUST use the "extract_entities" tool to report them. Provide the entities as a list of objects, each with a `name` and `url` field. **Do not include the same entity twice.**
 
 ## Entity Type Guidelines
 
