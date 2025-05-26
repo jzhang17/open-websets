@@ -50,7 +50,7 @@ export function useLangGraphStreamAndSend({
     messagesKey: "parentMessages",
     // Add custom stream mode to receive UI events
     streamMode: ["messages", "custom"],
-    subgraph: false,
+    recursionLimit: 50,
     reconnect: true,
     reconnectDelay: 1000,
     onThreadId,
