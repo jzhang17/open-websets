@@ -1,16 +1,9 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, Users, Database, FileText, Zap, Heart, Github, DollarSign, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  IconAdjustmentsBolt,
-  IconCloud,
-  IconCurrencyDollar,
-  IconEaseInOut,
-  IconHeart,
-  IconHelp,
-  IconRouteAltLeft,
-  IconTerminal2,
-} from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
 import {
   Drawer,
   DrawerClose,
@@ -24,49 +17,52 @@ import {
 
 const features = [
   {
-    title: "Built for developers",
-    description:
-      "Built for engineers, developers, dreamers, thinkers and doers.",
-    icon: <IconTerminal2 />,
+    title: "SF Design Engineers",
+    description: "Full-stack engineers in SF with strong design skills from AI startups",
+    icon: <Users />,
+    path: "/46eda902-4ece-4a1d-9812-0b7563b0ccef",
   },
   {
-    title: "Ease of use",
-    description:
-      "It's as easy as using an Apple, and as expensive as buying one.",
-    icon: <IconEaseInOut />,
+    title: "Rust Vector DB Engineers", 
+    description: "Software engineers specializing in Rust and vector databases in SF",
+    icon: <Database />,
+    path: "/86b17c9d-88df-4a94-a0d2-1b6cfc2b31f7",
   },
   {
-    title: "Pricing like no other",
-    description:
-      "Our prices are best in the market. No cap, no lock, no credit card required.",
-    icon: <IconCurrencyDollar />,
+    title: "Medical Research Papers",
+    description: "Cell regeneration research co-authored by MDs and technologists",
+    icon: <FileText />,
+    path: "/dda40224-aabc-4513-a221-ed8f2f8dc271",
   },
   {
-    title: "100% Uptime guarantee",
-    description: "We just cannot be taken down by anyone.",
-    icon: <IconCloud />,
+    title: "Data Center Infrastructure",
+    description: "Large substation maintenance companies in Texas (200+ employees)",
+    icon: <Zap />,
+    path: "/1b3320ce-605d-4660-8fb3-340bb27f1bbd",
   },
   {
-    title: "Multi-tenant Architecture",
-    description: "You can simply share passwords instead of buying new seats",
-    icon: <IconRouteAltLeft />,
+    title: "Healthcare Facilities",
+    description: "Nursing homes and assisted living in Southeast US (150+ beds)",
+    icon: <Heart />,
+    path: "/e25da2c5-c21f-4ea6-8675-37c55497e890",
   },
   {
-    title: "24/7 Customer Support",
-    description:
-      "We are available a 100% of the time. Atleast our AI Agents are.",
-    icon: <IconHelp />,
+    title: "LangChain Projects",
+    description: "Open source GitHub projects using LangChain/LangGraph with web search",
+    icon: <Github />,
+    path: "/7f0ba40f-3733-4ab6-8d7a-09a1d7cb3d34",
   },
   {
-    title: "Money back guarantee",
-    description:
-      "If you donot like EveryAI, we will convince you to like us.",
-    icon: <IconAdjustmentsBolt />,
+    title: "Investment Banking",
+    description: "Middle market investment bankers in SoCal (50-200M deals)",
+    icon: <DollarSign />,
+    path: "/3489d069-dc33-4c07-b490-3751fde92b90",
   },
   {
-    title: "And everything else",
-    description: "I just ran out of copy ideas. Accept my sincere apologies",
-    icon: <IconHeart />,
+    title: "React Performance Articles",
+    description: "Articles on React Server Components and first paint performance",
+    icon: <Rocket />,
+    path: "/edc553c7-dca7-4ff3-8490-9e369eb5ecd7",
   },
 ];
 
@@ -75,16 +71,24 @@ const Feature = ({
   description,
   icon,
   index,
+  path,
 }: {
   title: string;
   description: string;
   icon: React.ReactNode;
   index: number;
+  path: string;
 }) => {
+  const router = useRouter();
+
+  const handleClick = () => {
+    router.push(path);
+  };
+
   return (
     <div
       className={cn(
-        "flex flex-col py-6 sm:py-10 relative group/feature dark:border-neutral-800",
+        "flex flex-col py-6 sm:py-10 relative group/feature dark:border-neutral-800 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors duration-200",
         // Large screens (4 columns): right border for all except last in row
         "lg:border-r",
         // Medium screens (2 columns): right border for even indices (0,2,4,6)
@@ -100,6 +104,7 @@ const Feature = ({
         index < 6 && "sm:max-lg:border-b dark:border-neutral-800",
         index < 7 && "max-sm:border-b dark:border-neutral-800"
       )}
+      onClick={handleClick}
     >
       {index < 4 && (
         <div className="opacity-0 group-hover/feature:opacity-100 transition duration-200 absolute inset-0 h-full w-full bg-gradient-to-t from-neutral-100 dark:from-neutral-800 to-transparent pointer-events-none" />
@@ -135,9 +140,9 @@ export function OptionsDrawer() {
         </DrawerTrigger>
         <DrawerContent className="max-h-[90vh]">
           <DrawerHeader className="flex-shrink-0">
-            <DrawerTitle>Examples</DrawerTitle>
+            <DrawerTitle>Search Examples</DrawerTitle>
             <DrawerDescription>
-              See example searches and discover what you can find.
+              Click any example to try it out and see what you can discover.
             </DrawerDescription>
           </DrawerHeader>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
