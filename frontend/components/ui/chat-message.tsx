@@ -172,10 +172,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     // Important: Do not log warning if parts or toolInvocations are present,
     // as 'content' might be irrelevant or structured differently in those cases.
     if (!parts?.length && !toolInvocations?.length) {
-      console.warn(
-        `ChatMessage's 'content' prop received an unexpected value for direct rendering and no parts/tools. Got:`,
-        content
-      );
+      // Unexpected value for rendering
     }
     renderableTopLevelContent = ""; // Default to empty if content is not a recognized format for text
   }
