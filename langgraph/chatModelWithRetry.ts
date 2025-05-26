@@ -109,6 +109,34 @@ export async function loadChatModelWithRetry(modelName: string) {
     }
   }
 
+  // Added: Retry wrapper for invoke() calls used by LangChain.
+  async function invokeWithRetry(...args: any[]): Promise<any> {
+    const [input, options = {}] = args;
+    const { signal, __retryAttempt = 1 } = (options as any) ?? {};
+
+    if (signal?.aborted) {
+      return (realModel as any).invoke(input, options);
+    }
+
+    try {
+      return await (realModel as any).invoke(input, {
+        ...options,
+        signal,
+        __retryAttempt: undefined,
+      });
+    } catch (error) {
+      if (__retryAttempt >= MAX_RETRY_ATTEMPTS) {
+        throw error;
+      }
+      logRetryAttempt(__retryAttempt);
+      await wait(calculateBackoffMs(__retryAttempt));
+      return invokeWithRetry(input, {
+        ...options,
+        __retryAttempt: __retryAttempt + 1,
+      });
+    }
+  }
+
   return new Proxy(realModel, {
     get(target, prop, receiver) {
       if (prop === "generateContentStream") {
@@ -116,6 +144,9 @@ export async function loadChatModelWithRetry(modelName: string) {
       }
       if (prop === "generateContent") {
         return generateContentWithRetry;
+      }
+      if (prop === "invoke") {
+        return invokeWithRetry;
       }
       const value = Reflect.get(target, prop, receiver);
       return typeof value === "function" ? value.bind(target) : value;
