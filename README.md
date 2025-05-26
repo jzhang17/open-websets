@@ -1,11 +1,11 @@
 # Open Websets
 
-<a href="https://deepwiki.com/jzhang17/open-websets" target="_blank" rel="noopener noreferrer"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/jzhang17/open-websets)
 
 
-## Inspired by Exa's <a href="https://websets.exa.ai/" target="_blank" rel="noopener noreferrer">Websets</a>
+## Inspired by Exa's [Websets](https://websets.exa.ai/)
 
-This project is inspired by the capability of <a href="https://websets.exa.ai/" target="_blank" rel="noopener noreferrer">Exa's Websets</a>, which enables scalable structured data extraction from unstructured web sources. Websets processes queries like "full-stack engineers in SF with design experience at AI startups" and returns tabular data with LinkedIn profiles, GitHub repositories, graduation dates, and seniority classifications—each result verified by autonomous agents against the specified criteria.
+This project is inspired by the capability of [Exa's Websets](https://websets.exa.ai/), which enables scalable structured data extraction from unstructured web sources. Websets processes queries like "full-stack engineers in SF with design experience at AI startups" and returns tabular data with LinkedIn profiles, GitHub repositories, graduation dates, and seniority classifications—each result verified by autonomous agents against the specified criteria.
 
 The system handles complex multi-dimensional searches across thousands of entities, such as extracting YC company data with batch information, funding status, and industry classifications, while maintaining data accuracy through systematic verification workflows. Their architecture employs agent-based validation pipelines and automated enrichment processes that consistently deliver structured outputs from ambiguous natural language inputs.
 
@@ -25,16 +25,16 @@ This repository provides a Next.js based interface and several LangGraph agents 
 |-----------|------------|---------|
 | Frontend Framework | Next.js 15.3.2 | React 19 framework for web applications |
 | Agent Orchestration | LangGraph | Graph-based workflow management |
-| Chat Models | Google Gemini | Language model integration |
+| Chat Model | Google Gemini | Language model integration |
 | Tool APIs | Exa AI, Search1API | Web search and content crawling |
 | UI Components | Shadcn, Tailwind CSS | Component library and styling |
 | Type Safety | TypeScript | Static typing across frontend and backend |
 | State Management | React Context, LangGraph State | Client and agent state coordination |
-| Hosting Platforms | Vercel, LangGraph Platform | Frontend hosting and backend agent deployment |
+| Deployment Platforms | Vercel, LangGraph Platform | Frontend hosting and backend agent deployment |
 
 ## Setup
 
-Install dependencies for a package before running commands:
+Install dependencies before running commands:
 
 ```bash
 cd frontend && npm install
@@ -74,16 +74,16 @@ Open Websets implements two architectural patterns enabled by LangGraph's capabi
 
 ### Concurrency Fan-Out Architecture
 
-Our system utilizes LangGraph's `Send` API and subgraph functionality to distribute entity qualification tasks across multiple concurrent agents. This implementation follows LangGraph's recommended patterns for parallel processing.
+The system utilizes LangGraph's `Send` API and subgraph functionality to distribute entity qualification tasks across multiple concurrent agents. This implementation follows LangGraph's recommended patterns for parallel processing.
 
 ```mermaid
 graph LR
     B[Qualification Router<br/>Batch Size: 15 entities<br/>Max: 4 Workers]
     
-    B --> C[Worker A<br/>Entities 1-15<br/>60s]
-    B --> D[Worker B<br/>Entities 16-30<br/>30s] 
-    B --> E[Worker C<br/>Entities 31-45<br/>20s]
-    B --> F[Worker D<br/>Entities 46-60<br/>45s]
+    B --> C[Worker A<br/>Entities 1-15<br/>Time to complete: 60s]
+    B --> D[Worker B<br/>Entities 16-30<br/>Time to complete: 30s] 
+    B --> E[Worker C<br/>Entities 31-45<br/>Time to complete: 20s]
+    B --> F[Worker D<br/>Entities 46-60<br/>Time to complete: 45s]
     
     C --> B
     D --> B
@@ -160,7 +160,7 @@ This constraint directly influenced our architectural decision to use 4 workers 
 
 The `useStream` hook provides a simple and powerful solution for this project's streaming requirements, but it has significant limitations regarding interrupted streams. Currently, if a user is on a page and the stream is interrupted, they can retrieve updated information by refreshing the page, but there is no mechanism to resume an interrupted stream mid-process.
 
-This limitation means users may lose progress on long-running entity qualification tasks if their connection is disrupted. While the underlying data persists in LangGraph's state management, the frontend cannot reconnect to an in-progress stream, requiring users to restart the entire process.
+This limitation means users may lose progress on long-running entity qualification tasks if their connection is disrupted. While the underlying data persists in LangGraph's state management, the frontend cannot reconnect to an in-progress stream, requiring users to constantly refresh.
 
 ### Authentication and Security
 
