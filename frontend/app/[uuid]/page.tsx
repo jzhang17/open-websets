@@ -1,6 +1,10 @@
 import { ClientPageLayout } from "@/components/ClientPageLayout";
 import AgentGridLoader from "@/components/AgentGridLoader";
 
+// Enable static optimization for known UUID routes
+export const dynamic = 'force-dynamic'; // Since UUID is dynamic
+export const revalidate = 0; // No revalidation needed for dynamic routes
+
 export default async function UuidPage({
   params,
 }: {

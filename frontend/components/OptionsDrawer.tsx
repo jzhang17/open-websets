@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Lightbulb, Users, Database, FileText, Zap, Heart, Github, DollarSign, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Drawer,
@@ -38,7 +39,7 @@ const features = [
     title: "Data Center Infrastructure",
     description: "Large substation maintenance companies in Texas (200+ employees)",
     icon: <Zap />,
-    path: "/1b3320ce-605d-4660-8fb3-340bb27f1bbd",
+    path: "/55280544-8997-4cea-8a23-8d1a2d87a7f7",
   },
   {
     title: "Healthcare Facilities",
@@ -79,14 +80,10 @@ const Feature = ({
   index: number;
   path: string;
 }) => {
-  const router = useRouter();
-
-  const handleClick = () => {
-    router.push(path);
-  };
-
   return (
-    <div
+    <Link 
+      href={path} 
+      prefetch={true}
       className={cn(
         "flex flex-col py-6 sm:py-10 relative group/feature dark:border-neutral-800 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors duration-200",
         // Large screens (4 columns): right border for all except last in row
@@ -104,7 +101,6 @@ const Feature = ({
         index < 6 && "sm:max-lg:border-b dark:border-neutral-800",
         index < 7 && "max-sm:border-b dark:border-neutral-800"
       )}
-      onClick={handleClick}
     >
       {index < 4 && (
         <div className="opacity-0 group-hover/feature:opacity-100 transition duration-200 absolute inset-0 h-full w-full bg-gradient-to-t from-neutral-100 dark:from-neutral-800 to-transparent pointer-events-none" />
@@ -124,16 +120,29 @@ const Feature = ({
       <p className="text-sm text-neutral-600 dark:text-neutral-300 max-w-xs relative z-10 px-6 sm:px-10">
         {description}
       </p>
-    </div>
+    </Link>
   );
 };
 
 export function OptionsDrawer() {
+  const router = useRouter();
+
+  // Prefetch all example routes when drawer opens or on hover
+  const handlePrefetch = () => {
+    features.forEach(feature => {
+      router.prefetch(feature.path);
+    });
+  };
+
   return (
     <div className="pb-8 px-4 flex justify-center">
       <Drawer>
         <DrawerTrigger asChild>
-          <Button variant="ghost">
+          <Button 
+            variant="ghost" 
+            onClick={handlePrefetch} 
+            onMouseEnter={handlePrefetch}
+          >
             <Lightbulb className="w-4 h-4" />
             Click to see examples
           </Button>
