@@ -10,11 +10,9 @@ export async function loadChatModel(fullySpecifiedName: string) {
   if (fullySpecifiedName.startsWith("gemini")) {
     return new ChatGoogle({
       model: fullySpecifiedName,
-      apiVersion: "v1",
+      apiVersion: "v1beta",
       platformType: "gai",
       maxReasoningTokens: 0,
-      disableStreaming: true,
-      streaming: false,
     });
   }
   const index = fullySpecifiedName.indexOf("/");

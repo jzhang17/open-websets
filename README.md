@@ -150,3 +150,27 @@ sequenceDiagram
 
 ## Limitations
 
+### Upstream API Rate Limits
+
+The system's processing speed is constrained by the rate limits of upstream APIs. The Exa API restricts individual users to 5 API requests per second, which is insufficient for the scale of entity processing this tool requires. When using alternative solutions like Search1API, the rate limit is maximized by our configuration of 4 batches of 15 entities, providing some headroom for buffer management.
+
+This constraint directly influenced our architectural decision to use 4 workers processing 15 entities per batch. While alternative configurations with different batch sizes and worker counts might provide better UI/UX feedback, the current implementation is optimized around the rate limit constraints of upstream search tools, prioritizing the ability to process large numbers of entities while minimizing overall processing time.
+
+### Stream Management and Resumption
+
+The `useStream` hook provides a simple and powerful solution for this project's streaming requirements, but it has significant limitations regarding interrupted streams. Currently, if a user is on a page and the stream is interrupted, they can retrieve updated information by refreshing the page, but there is no mechanism to resume an interrupted stream mid-process.
+
+This limitation means users may lose progress on long-running entity qualification tasks if their connection is disrupted. While the underlying data persists in LangGraph's state management, the frontend cannot reconnect to an in-progress stream, requiring users to restart the entire process.
+
+### Authentication and Security
+
+For the scope of this project, there is no segmentation of users' search history or data isolation. All thread IDs are accessible to any user of the platform, creating potential privacy and security concerns in a production environment.
+
+The current infrastructure is designed to integrate with third-party authentication services and databases when deployed on the LangGraph Platform, but this functionality is not implemented in the current version. This makes the system suitable for demonstration and development purposes but requires additional security measures before production deployment.
+
+### Generative UI Implementation Delays
+
+While the generative UI implementation provides an engaging exploration of LangGraph's streaming capabilities, the out-of-the-box implementation requires merging results from the first batch of workers before updating the interface. This creates a delay where users must wait for the first batch of up to 60 entities to be processed before seeing any UI updates.
+
+This batching requirement can result in extended periods without visual feedback, particularly when the first batch encounters slower processing times. While subsequent updates stream in real-time, the initial delay can impact the perceived responsiveness of the system and user experience during the early stages of entity qualification.
+
