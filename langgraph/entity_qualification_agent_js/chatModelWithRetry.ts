@@ -44,15 +44,29 @@ export async function loadChatModelWithRetry(modelName: string) {
     }
 
     try {
-      return await realModel.generateContent(input, {
+      // Wrap the entire call in a more comprehensive error boundary
+      const result = await Promise.resolve(realModel.generateContent(input, {
         ...options,
         signal,
         __retryAttempt: undefined,
-      });
-    } catch (error) {
+      }));
+      return result;
+    } catch (error: any) {
+      // Log the caught error for debugging
+      console.log(`[Gemini-Retry] Caught error on attempt ${__retryAttempt}:`, error.message || error);
+      
       if (__retryAttempt >= MAX_RETRY_ATTEMPTS) {
+        console.error(`[Gemini-Retry] Max retry attempts (${MAX_RETRY_ATTEMPTS}) reached. Throwing error.`);
         throw error;
       }
+      
+      // Check if this is a retryable error
+      const isRetryableError = shouldRetryError(error);
+      if (!isRetryableError) {
+        console.warn(`[Gemini-Retry] Non-retryable error detected. Throwing immediately.`);
+        throw error;
+      }
+      
       logRetryAttempt(__retryAttempt);
       await wait(calculateBackoffMs(__retryAttempt));
       return generateContentWithRetry(input, {
@@ -60,6 +74,36 @@ export async function loadChatModelWithRetry(modelName: string) {
         __retryAttempt: __retryAttempt + 1,
       });
     }
+  }
+
+  function shouldRetryError(error: any): boolean {
+    // Check for Google 500 errors specifically
+    if (error.message && error.message.includes('status code 500')) {
+      return true;
+    }
+    
+    // Check for internal errors
+    if (error.message && error.message.includes('INTERNAL')) {
+      return true;
+    }
+    
+    // Check for rate limiting
+    if (error.message && error.message.includes('429')) {
+      return true;
+    }
+    
+    // Check for timeout errors
+    if (error.message && (error.message.includes('timeout') || error.message.includes('TIMEOUT'))) {
+      return true;
+    }
+    
+    // Check for network errors
+    if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+      return true;
+    }
+    
+    // Default to retrying for any error (can be made more restrictive)
+    return true;
   }
 
   return new Proxy(realModel, {
