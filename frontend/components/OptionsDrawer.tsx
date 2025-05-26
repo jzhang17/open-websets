@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Users, Database, FileText, Zap, Heart, Github, DollarSign, Rocket } from "lucide-react";
+import { Lightbulb, Users, Database, FileText, Zap, Heart, Github, DollarSign, Rocket, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -148,11 +148,22 @@ export function OptionsDrawer() {
           </Button>
         </DrawerTrigger>
         <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader className="flex-shrink-0">
+          <DrawerHeader className="flex-shrink-0 relative px-6 sm:px-10">
             <DrawerTitle>Search Examples</DrawerTitle>
             <DrawerDescription>
               Click any example to try it out and see what you can discover.
             </DrawerDescription>
+            {/* X button for desktop (2+ columns) */}
+            <DrawerClose asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-4 right-6 sm:right-10 h-8 w-8 p-0 hidden sm:flex items-center justify-center rounded-full bg-primary hover:bg-primary/90 transition-colors duration-200 group"
+              >
+                <X className="h-4 w-4 text-primary-foreground transition-colors duration-200" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DrawerClose>
           </DrawerHeader>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 relative z-10 max-w-7xl mx-auto">
@@ -161,7 +172,8 @@ export function OptionsDrawer() {
               ))}
             </div>
           </div>
-          <DrawerFooter className="flex-shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          {/* Footer with close button - only show on mobile (1 column) */}
+          <DrawerFooter className="flex-shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:hidden">
             <div className="flex flex-col gap-2 max-w-md mx-auto w-full px-4">
               <DrawerClose asChild>
                 <Button variant="outline" className="w-full">
