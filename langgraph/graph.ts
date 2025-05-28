@@ -326,56 +326,6 @@ function assignQualificationWorkers(state: ParentAppState) {
   return sends; // Return Send[] (can be empty) or "__end__"
 }
 
-// Accumulator node that handles individual worker completions
-async function qualificationAccumulator(
-  state: ParentAppState,
-  config: RunnableConfig,
-): Promise<Partial<ParentAppStateUpdate>> {
-  // Debug logging to track individual worker completion
-  console.log('QualificationAccumulator - Worker completed:', {
-    entitiesCount: state.entities?.length ?? 0,
-    qualificationSummaryCount: state.qualificationSummary?.length ?? 0,
-    processedEntityCount: state.processedEntityCount ?? 0,
-    finishedBatches: state.finishedBatches ?? 0,
-    newQualificationCount: state.qualificationSummary?.length ?? 0,
-  });
-  
-  // Increment finished batches counter since this worker has completed
-  return {
-    finishedBatches: 1, // This will be added to current count due to the reducer
-  };
-}
-
-// Router node that checks completion and manages worker assignment
-async function qualificationRouter(
-  state: ParentAppState,
-  config: RunnableConfig,
-): Promise<Partial<ParentAppStateUpdate>> {
-  // Debug logging to track state
-  console.log('QualificationRouter state:', {
-    entitiesCount: state.entities?.length ?? 0,
-    qualificationSummaryCount: state.qualificationSummary?.length ?? 0,
-    processedEntityCount: state.processedEntityCount ?? 0,
-    finishedBatches: state.finishedBatches ?? 0,
-    firstFewEntities: state.entities?.slice(0, 3).map(e => ({name: e.name, index: e.index})) ?? [],
-  });
-  
-  // Check if all entities are processed and emit a completion message
-  const batchSize = 15;
-  const totalEntities = state.entities?.length ?? 0;
-  const finished = state.finishedBatches * batchSize >= totalEntities;
-  
-  if (finished) {
-    const doneMsg = new AIMessage({ content: "The search and qualification process is complete." });
-    return { 
-      parentMessages: [doneMsg]
-    };
-  }
-  
-  // Return empty state update for intermediate steps
-  return {};
-}
-
 // Build parent workflow
 const parentWorkflow = new StateGraph(
   ParentAppStateAnnotation,
@@ -388,8 +338,34 @@ parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 
 // Subgraphs handle list generation and entity qualification
 parentWorkflow.addNode("listGeneration", listGenerationGraph);
-parentWorkflow.addNode("qualificationRouter", qualificationRouter);
-parentWorkflow.addNode("qualificationAccumulator", qualificationAccumulator);
+parentWorkflow.addNode(
+  "qualificationRouter",
+  async (state: ParentAppState, config: RunnableConfig) => {
+    // Debug logging to track state
+    console.log('QualificationRouter state:', {
+      entitiesCount: state.entities?.length ?? 0,
+      qualificationSummaryCount: state.qualificationSummary?.length ?? 0,
+      processedEntityCount: state.processedEntityCount ?? 0,
+      finishedBatches: state.finishedBatches ?? 0,
+      firstFewEntities: state.entities?.slice(0, 3).map(e => ({name: e.name, index: e.index})) ?? [],
+    });
+    
+    // Check if all entities are processed and emit a completion message
+    const batchSize = 15;
+    const totalEntities = state.entities?.length ?? 0;
+    const finished = state.finishedBatches * batchSize >= totalEntities;
+    
+    if (finished) {
+      const doneMsg = new AIMessage({ content: "The search and qualification process is complete." });
+      return { 
+        parentMessages: [doneMsg]
+      };
+    }
+    
+    // Return empty state update for intermediate steps
+    return {};
+  }
+);
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);
 
 // Workflow edges
@@ -407,15 +383,8 @@ parentWorkflow.addConditionalEdges(
   },
 );
 
-// Each individual worker flows through the accumulator for immediate state updates
 parentWorkflow.addEdge(
   "entityQualification" as any,
-  "qualificationAccumulator" as any,
-);
-
-// After accumulating, route back to the router to potentially dispatch more workers
-parentWorkflow.addEdge(
-  "qualificationAccumulator" as any,
   "qualificationRouter" as any,
 );
 
