@@ -160,18 +160,12 @@ function AgentGridComponent({}: AgentGridProps) {
     return (
       <div className="w-full h-full">
         <AgentGridLoading />
-        <div className="text-sm text-gray-500 mt-4 px-4">
-          Debug: Waiting for entities... (Stream: {stream ? 'connected' : 'not connected'})
-        </div>
       </div>
     );
   }
 
   return (
     <div className="w-full h-full">
-      <div className="text-xs text-gray-400 mb-2 px-4">
-        Debug: Entities: {entities.length}, Qualified: {qualificationSummary.length}, Loading: {isLoading ? 'Yes' : 'No'}
-      </div>
       <div className="flex-1 w-full">
         <AgGridReact
           theme={gridTheme}

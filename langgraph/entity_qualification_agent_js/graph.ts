@@ -424,7 +424,7 @@ async function verificationAgentNode(
   const configuration = ensureConfiguration(config);
   const model = (await loadChatModel(configuration.model)).bindTools(
     VERIFICATION_LLM_TOOLS,
-  );
+  ).withRetry({ stopAfterAttempt: 3 });
 
   const entitiesToQualifyString = JSON.stringify(
     state.entitiesToQualify,
