@@ -6,7 +6,7 @@ import {
 } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { RunnableLambda } from "@langchain/core/runnables";
-import { Annotation, StateGraph } from "@langchain/langgraph";
+import { Annotation, StateGraph, Command } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
@@ -408,11 +408,18 @@ async function programmaticVerificationNode(
       final_consistency: false,
     };
   }
-  if (
+  const verificationComplete =
     updateToReturn.verificationResults?.final_consistency === true ||
-    (state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS
-  ) {
-    updateToReturn.finishedBatches = 1;
+    (state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS;
+  if (verificationComplete) {
+    const batchResults = currentQualificationSummary;
+    return new Command({
+      graph: Command.PARENT,
+      update: {
+        qualificationSummary: batchResults,
+        finishedBatches: 1,
+      },
+    });
   }
   return updateToReturn;
 }
