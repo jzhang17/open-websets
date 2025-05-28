@@ -18,10 +18,6 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import { AIMessage, ToolMessage, HumanMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
-import {
-  typedUi,
-  uiMessageReducer,
-} from "@langchain/langgraph-sdk/react-ui/server";
 
 // Entities and qualification items mirror the types used in the subgraphs
 interface Entity extends ListGenEntityInterface {}
@@ -33,9 +29,13 @@ const ParentAppStateAnnotation = Annotation.Root({
     reducer: (currentState, updateValue) => currentState.concat(updateValue),
     default: () => [],
   }),
-  ui: Annotation<any[]>({ reducer: uiMessageReducer, default: () => [] }),
   entities: Annotation<Entity[]>({
-    reducer: (_currentState, updateValue) => updateValue,
+    reducer: (currentState, updateValue) => {
+      // Ensure both are arrays before concatenating
+      const current = Array.isArray(currentState) ? currentState : [];
+      const update = Array.isArray(updateValue) ? updateValue : [];
+      return current.concat(update);
+    },
     default: () => [],
   }),
   qualificationCriteria: Annotation<string>({
@@ -341,31 +341,14 @@ parentWorkflow.addNode("listGeneration", listGenerationGraph);
 parentWorkflow.addNode(
   "qualificationRouter",
   async (state: ParentAppState, config: RunnableConfig) => {
-    // Emit UI update for AG Grid table using custom events
-    const ui = typedUi(config);
-    
-    /*
-     * Stream updates to the same UI message so the client component can
-     * update in-place instead of creating a brand-new message every time.
-     * By supplying a stable `id` and `merge: true`, successive calls will
-     * merge their `props` with the existing message and emit a `custom`
-     * event to the browser.  The React side then receives one UI message
-     * whose props keep changing – perfect for live-updating AG Grid.
-     */
-    ui.push(
-      {
-        id: "agGridTableMessage", // any stable identifier
-        name: "agGridTable",
-        props: {
-          entities: state.entities,
-          qualificationSummary: state.qualificationSummary,
-        },
-      },
-      {
-        // Tell LangGraph to merge with the existing UI message (if any)
-        merge: true,
-      },
-    );
+    // Debug logging to track state
+    console.log('QualificationRouter state:', {
+      entitiesCount: state.entities?.length ?? 0,
+      qualificationSummaryCount: state.qualificationSummary?.length ?? 0,
+      processedEntityCount: state.processedEntityCount ?? 0,
+      finishedBatches: state.finishedBatches ?? 0,
+      firstFewEntities: state.entities?.slice(0, 3).map(e => ({name: e.name, index: e.index})) ?? [],
+    });
     
     // Check if all entities are processed and emit a completion message
     const batchSize = 15;
@@ -379,7 +362,7 @@ parentWorkflow.addNode(
       };
     }
     
-    // For intermediate updates, don't return UI in state - the ui.push() already emitted the event
+    // Return empty state update for intermediate steps
     return {};
   }
 );

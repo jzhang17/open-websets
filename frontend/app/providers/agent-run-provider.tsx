@@ -8,7 +8,6 @@ import { useLangGraphStreamAndSend, processStreamError } from "@/hooks/use-agent
 interface AgentRunCtx {
   threadId: string | null;
   messages: LangGraphMessage[];
-  ui: any[];
   isLoading: boolean;
   error: Error | null;
   send: (content: string) => void;
@@ -34,7 +33,6 @@ export function AgentRunProvider({ children }: { children: React.ReactNode }) {
 
   const {
     messages,
-    ui,
     isLoading,
     error,
     send,
@@ -49,14 +47,13 @@ export function AgentRunProvider({ children }: { children: React.ReactNode }) {
   const value: AgentRunCtx = useMemo(() => ({
     threadId,
     messages,
-    ui,
     isLoading,
     error: processStreamError(error),
     send,
     stop,
     setThreadId,
     stream,
-  }), [threadId, messages, ui, isLoading, error, send, stop, setThreadId, stream]);
+  }), [threadId, messages, isLoading, error, send, stop, setThreadId, stream]);
 
   return <AgentRunContext.Provider value={value}>{children}</AgentRunContext.Provider>;
 }

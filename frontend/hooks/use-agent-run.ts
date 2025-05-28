@@ -1,5 +1,4 @@
 import { useStream, type UseStreamOptions } from "@langchain/langgraph-sdk/react";
-import { uiMessageReducer } from "@langchain/langgraph-sdk/react-ui";
 import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk";
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient, type QueryKey, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
@@ -9,19 +8,34 @@ import { useQuery, useQueryClient, type QueryKey, type UseQueryOptions, type Use
 // The Message type from langgraph-sdk should be compatible.
 export interface AgentState {
   parentMessages: LangGraphMessage[];
-  ui?: any[];
+  entities?: Array<{
+    index: number;
+    name: string;
+    url: string;
+  }>;
+  qualificationSummary?: Array<{
+    index: number;
+    qualified: boolean | null;
+    reasoning: string;
+  }>;
+  qualificationCriteria?: string;
+  entityTypes?: string[];
+  entitiesToQualify?: Array<{
+    index: number;
+    name: string;
+    url: string;
+  }>;
+  processedEntityCount?: number;
+  finishedBatches?: number;
+  listGenMessages?: LangGraphMessage[];
+  qualMessages?: LangGraphMessage[];
   [key: string]: unknown; // Index signature to satisfy Record<string, unknown>
-  // Add other state keys from your ParentAppStateAnnotation if needed for optimistic updates or direct display
-  // For example:
-  // entities?: any[];
-  // qualificationCriteria?: string;
 }
 
 // Define the structure of the input/update object for the submit function.
 // This should align with how you want to update the agent's state.
 export interface AgentUpdate {
   parentMessages: LangGraphMessage[] | LangGraphMessage; // Can be a single message or an array
-  ui?: any[] | any;
   subgraph?: boolean; // Control whether to run as a subgraph
 }
 
@@ -48,25 +62,12 @@ export function useLangGraphStreamAndSend({
     assistantId: "agent",
     threadId: threadId ?? undefined,
     messagesKey: "parentMessages",
-    // Add custom stream mode to receive UI events
-    streamMode: ["messages", "custom"],
+    // Stream both messages and values to get state updates
+    streamMode: ["messages", "values"],
     recursionLimit: 50,
     reconnect: true,
     reconnectDelay: 1000,
     onThreadId,
-    onCustomEvent: (event, options) => {
-      // Handle UI message events using the mutate function following the LangGraph documentation
-      options.mutate(prev => {
-        // Use the built-in uiMessageReducer to handle UI state updates properly
-        const currentUI = prev?.ui ?? [];
-        const updatedUI = uiMessageReducer(currentUI, event as any);
-        
-        return {
-          ...prev,
-          ui: updatedUI,
-        };
-      });
-    },
   } as UseStreamOptions<AgentState, { UpdateType: AgentUpdate }>);
 
   const { submit, messages, isLoading, error, stop, values: stateValues } = streamHookResult;
@@ -112,7 +113,6 @@ export function useLangGraphStreamAndSend({
 
   return {
     messages: messages ?? [],
-    ui: stateValues?.ui ?? [],
     isLoading,
     error,
     send,
@@ -141,14 +141,8 @@ export function useAgentRun(props: UseAgentRunProps) {
   // For now, just directly return the stream hook to test if React Query was the issue
   const streamHook = useLangGraphStreamAndSend(props);
   
-  // Track UI changes if needed in the future
-  useEffect(() => {
-    // Intentionally left blank - side effects can be added here if required
-  }, [streamHook.ui?.length]);
-  
   return {
     messages: streamHook.messages,
-    ui: streamHook.ui,
     isLoading: streamHook.isLoading,
     error: processStreamError(streamHook.error),
     send: streamHook.send,

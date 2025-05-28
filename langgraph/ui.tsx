@@ -1,3 +1,18 @@
+/*
+ * NOTE: This file is no longer used in the current architecture.
+ * 
+ * Previously, this file defined AG Grid components for LangGraph's generative UI system,
+ * where the server would "beam" pre-rendered UI components to the client using typedUi().
+ * 
+ * We've now switched to a traditional client-side rendering approach where:
+ * - The server sends only data/state updates via LangGraph streams
+ * - The client (AgentGrid.tsx) renders the AG Grid directly using that data
+ * 
+ * This provides better performance, simpler debugging, and more control over the UI.
+ * The AG Grid setup code has been moved to frontend/components/AgentGrid.tsx
+ */
+
+// Original generative UI code (kept for reference):
 import React from "react";
 import { AgGridReact } from "ag-grid-react";
 import { useStreamContext } from "@langchain/langgraph-sdk/react-ui";
