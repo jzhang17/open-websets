@@ -40,7 +40,13 @@ const ParentAppStateAnnotation = Annotation.Root({
 
       // Create a map of existing entities by URL to check for duplicates
       const existingUrls = new Set(current.map(entity => entity.url));
-      let nextIndex = current.length;
+      
+      // Find the highest existing index to ensure continuous indexing
+      let nextIndex = 0;
+      if (current.length > 0) {
+        const maxIndex = Math.max(...current.map(entity => entity.index));
+        nextIndex = maxIndex + 1;
+      }
 
       const newEntities: Entity[] = [];
       update.forEach(rawEntity => {
@@ -62,7 +68,7 @@ const ParentAppStateAnnotation = Annotation.Root({
       });
 
       if (newEntities.length > 0) {
-        console.log(`Parent entities reducer: Added ${newEntities.length} new unique entities.`);
+        console.log(`Parent entities reducer: Added ${newEntities.length} new unique entities. Next index will be ${nextIndex}.`);
       }
       
       return current.concat(newEntities);
@@ -342,8 +348,8 @@ function assignQualificationWorkers(state: ParentAppState): Send[] | "__end__" {
     qualificationCriteria,
     finishedBatches = 0,
   } = state;
-  const batchSize = 15;
-  const maxWorkers = 4; // Max concurrent subgraphs we want to dispatch from this node in one go
+  const batchSize = 5;
+  const maxWorkers = 10;
   const totalEntities = entities?.length ?? 0;
 
   // If all entities are genuinely finished, signal end. This is a primary termination path.
@@ -427,7 +433,7 @@ parentWorkflow.addNode("listGeneration", listGenerationGraph as any);
 parentWorkflow.addNode(
   "qualificationRouter",
   async (state: ParentAppState, config: RunnableConfig) => {
-    const batchSize = 15; // Ensure this is consistent
+    const batchSize = 5;
     const totalEntities = state.entities?.length ?? 0;
     const currentProcessedCount = state.processedEntityCount ?? 0;
     const finishedBatchesCount = state.finishedBatches ?? 0;
@@ -457,7 +463,7 @@ parentWorkflow.addNode(
     
     // Calculate the next processedEntityCount: how many entities *should* be processed
     // considering maxWorkers and batchSize. This is the upper limit for assignQualificationWorkers.
-    const maxWorkers = 4;
+    const maxWorkers = 10;
     const activeBatches = Math.ceil(currentProcessedCount / batchSize) - finishedBatchesCount;
     const availableCapacityForBatches = Math.max(0, maxWorkers - activeBatches);
     

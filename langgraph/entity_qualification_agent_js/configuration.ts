@@ -27,6 +27,6 @@ export function ensureConfiguration(
     systemPromptTemplate: configurable.systemPromptTemplate ?? "",
     model:
       configurable.model ??
-      "gemini-2.5-flash-preview-05-20",
+      "gemini-2.0-flash",
   };
 }
