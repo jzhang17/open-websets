@@ -137,15 +137,15 @@ const batchWebSearch = new DynamicStructuredTool({
   },
 });
 
-// Define the schema for an individual entity
-const entitySchema = z.object({
+// Define the schema for an individual entity for the tool
+const rawEntitySchema = z.object({
   name: z.string().describe("The name of the extracted entity."),
   url: z.string().describe("The URL associated with the entity."),
 });
 
 const extractEntitiesSchema = z.object({
   entities: z
-    .array(entitySchema)
+    .array(rawEntitySchema)
     .describe("A list of entities, where each entity has a name and a URL."),
 });
 
@@ -170,6 +170,7 @@ const extractEntities = new DynamicStructuredTool({
       name: entity.name.trim(),
       url: entity.url.trim(),
     }));
+    // Return raw entities; parent will handle indexing.
     return { entities: cleanedEntities };
   },
 });
@@ -182,6 +183,7 @@ const extractEntities = new DynamicStructuredTool({
  * @param currentCount - Number of entities currently stored.
  * @returns Array of entities with `index`, `name`, and `url`.
  */
+/*
 export function addEntityIndexes(
   newEntities: { name: string; url: string }[],
   currentCount: number,
@@ -192,6 +194,7 @@ export function addEntityIndexes(
     url: e.url.trim(),
   }));
 }
+*/
 
 const exaSearchSchema = z.object({
   queries: z.array(z.string()).describe("A list of search queries."),

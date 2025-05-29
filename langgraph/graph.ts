@@ -19,8 +19,11 @@ import { fileURLToPath } from "url";
 import { AIMessage, ToolMessage, HumanMessage } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
 
-// Entities and qualification items mirror the types used in the subgraphs
-interface Entity extends ListGenEntityInterface {}
+// Parent graph's Entity interface includes an index
+interface Entity extends ListGenEntityInterface { 
+  index: number; 
+}
+
 type QualificationItem = EQQualificationItem;
 
 // Define the parent graph's state structure
@@ -30,33 +33,36 @@ const ParentAppStateAnnotation = Annotation.Root({
     default: () => [],
   }),
   entities: Annotation<Entity[]>({
-    reducer: (currentState, updateValue) => {
+    reducer: (currentState, updateValue: ListGenEntityInterface[]) => {
       // Ensure both are arrays before processing
-      const current = Array.isArray(currentState) ? currentState : [];
+      let current = Array.isArray(currentState) ? currentState : [];
       const update = Array.isArray(updateValue) ? updateValue : [];
-      
-      // Create a map of existing entities by index to check for duplicates
-      const existingEntitiesMap = new Map();
-      current.forEach(entity => {
-        if (entity && typeof entity.index === 'number') {
-          existingEntitiesMap.set(entity.index, entity);
+
+      // Create a map of existing entities by URL to check for duplicates
+      const existingUrls = new Set(current.map(entity => entity.url));
+      let nextIndex = current.length;
+
+      const newEntities: Entity[] = [];
+      update.forEach(rawEntity => {
+        if (!rawEntity || typeof rawEntity.url !== 'string' || typeof rawEntity.name !== 'string') {
+          console.log("Parent entities reducer: Skipping invalid raw entity", rawEntity);
+          return;
+        }
+        if (!existingUrls.has(rawEntity.url)) {
+          newEntities.push({
+            name: rawEntity.name,
+            url: rawEntity.url,
+            index: nextIndex,
+          });
+          existingUrls.add(rawEntity.url);
+          nextIndex++;
+        } else {
+          console.log(`Parent entities reducer: Preventing duplicate entity with URL ${rawEntity.url}: ${rawEntity.name}`);
         }
       });
-      
-      // Filter out duplicates from the update based on index
-      const newEntities = update.filter(entity => {
-        if (!entity || typeof entity.index !== 'number') {
-          return false; // Skip invalid entities
-        }
-        const isDuplicate = existingEntitiesMap.has(entity.index);
-        if (isDuplicate) {
-          console.log(`Preventing duplicate entity with index ${entity.index}: ${entity.name}`);
-        }
-        return !isDuplicate;
-      });
-      
-      if (newEntities.length !== update.length) {
-        console.log(`Entities reducer: Filtered ${update.length - newEntities.length} duplicate entities`);
+
+      if (newEntities.length > 0) {
+        console.log(`Parent entities reducer: Added ${newEntities.length} new unique entities.`);
       }
       
       return current.concat(newEntities);
@@ -329,53 +335,80 @@ function routeAgentModelOutput(state: any) {
 
 // Split the entity list into batches and issue Send instructions for each batch.
 // Returning multiple Send objects makes LangGraph run those subgraphs concurrently.
-function assignQualificationWorkers(state: ParentAppState) {
+function assignQualificationWorkers(state: ParentAppState): Send[] | "__end__" {
   const {
     entities,
-    processedEntityCount = 0,
+    processedEntityCount = 0, // Target up to which entities should be processed (set by router)
     qualificationCriteria,
     finishedBatches = 0,
   } = state;
   const batchSize = 15;
-  const maxWorkers = 4;
-
+  const maxWorkers = 4; // Max concurrent subgraphs we want to dispatch from this node in one go
   const totalEntities = entities?.length ?? 0;
 
-  if (finishedBatches * batchSize >= totalEntities) {
+  // If all entities are genuinely finished, signal end. This is a primary termination path.
+  if (finishedBatches * batchSize >= totalEntities && totalEntities > 0) {
+    console.log("assignQualificationWorkers: All entities covered by finished batches. Signaling __end__.");
+    return "__end__";
+  }
+  if (totalEntities === 0) {
+    console.log("assignQualificationWorkers: No entities to process. Signaling __end__.");
     return "__end__";
   }
 
-  const dispatchedBatches = Math.ceil(processedEntityCount / batchSize);
-  const activeBatches = dispatchedBatches - finishedBatches;
-  const capacity = maxWorkers - activeBatches;
-
-  if (capacity <= 0) {
-    return [];
-  }
-
   const sends: Send[] = [];
-  let nextIndex = processedEntityCount;
+  let currentStartIndexForBatch = finishedBatches * batchSize;
+  let batchesSentInThisCall = 0;
 
-  for (let i = 0; i < capacity && nextIndex < totalEntities; i++) {
-    const start = nextIndex;
-    const end = Math.min(start + batchSize, totalEntities);
+  // Loop while:
+  // 1. The start of our next potential batch is less than the total entities.
+  // 2. The start of our next potential batch is less than the target 'processedEntityCount'.
+  // 3. We haven't sent 'maxWorkers' batches in this current invocation.
+  while (
+    currentStartIndexForBatch < totalEntities &&
+    currentStartIndexForBatch < processedEntityCount &&
+    batchesSentInThisCall < maxWorkers
+  ) {
+    const start = currentStartIndexForBatch;
+    // Batch should not go beyond totalEntities or the processedEntityCount target
+    const end = Math.min(start + batchSize, totalEntities, processedEntityCount);
+
+    if (start >= end) { 
+      console.log(`assignQualificationWorkers: Breaking loop due to start (${start}) >= end (${end}). This might occur if processedEntityCount aligns with a batch boundary already covered by finishedBatches, or if processedEntityCount is less than currentStartIndexForBatch.`);
+      break;
+    }
+
     const batchEntities = entities.slice(start, end).map((e) => ({
       index: e.index,
       name: e.name,
       url: e.url,
     }));
+
+    if (batchEntities.length === 0) {
+      console.log(`assignQualificationWorkers: Empty batch slice from ${start} to ${end}. Advancing start index.`);
+      currentStartIndexForBatch = end; // Ensure progress past this empty segment
+      continue;
+    }
+    
     const batchNames = batchEntities.map((e) => e.name);
     const qualInstruction = `Please qualify the following entities: ${batchNames.join(", ")}. The qualification criteria are: ${qualificationCriteria}`;
-    nextIndex = end;
+    
+    console.log(`assignQualificationWorkers: Dispatching batch for entities from index ${start} to ${end-1}. Count: ${batchEntities.length}. Batches sent this call: ${batchesSentInThisCall + 1}`);
     sends.push(
       new Send("entityQualification", {
         entitiesToQualify: batchEntities,
         qualMessages: [new HumanMessage({ content: qualInstruction })],
         qualificationCriteria,
-        processedEntityCount: nextIndex,
       }),
     );
+    currentStartIndexForBatch = end; // Move to the start of the next potential batch
+    batchesSentInThisCall++;
   }
+  
+  if (sends.length === 0) {
+      console.log(`assignQualificationWorkers: No sends made this cycle. Conditions: currentStartIndexForBatch=${currentStartIndexForBatch}, processedEntityCount=${processedEntityCount}, totalEntities=${totalEntities}, batchesSentInThisCall (target was < maxWorkers)=${batchesSentInThisCall}`);
+  }
+  
   return sends; // Return Send[] (can be empty) or "__end__"
 }
 
@@ -390,33 +423,58 @@ parentWorkflow.addNode("agent", callAgentModel);
 parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 
 // Subgraphs handle list generation and entity qualification
-parentWorkflow.addNode("listGeneration", listGenerationGraph);
+parentWorkflow.addNode("listGeneration", listGenerationGraph as any);
 parentWorkflow.addNode(
   "qualificationRouter",
   async (state: ParentAppState, config: RunnableConfig) => {
+    const batchSize = 15; // Ensure this is consistent
+    const totalEntities = state.entities?.length ?? 0;
+    const currentProcessedCount = state.processedEntityCount ?? 0;
+    const finishedBatchesCount = state.finishedBatches ?? 0;
+
     // Debug logging to track state
     console.log('QualificationRouter state:', {
-      entitiesCount: state.entities?.length ?? 0,
+      entitiesCount: totalEntities,
       qualificationSummaryCount: state.qualificationSummary?.length ?? 0,
-      processedEntityCount: state.processedEntityCount ?? 0,
-      finishedBatches: state.finishedBatches ?? 0,
-      firstFewEntities: state.entities?.slice(0, 3).map(e => ({name: e.name, index: e.index})) ?? [],
+      processedEntityCount: currentProcessedCount,
+      finishedBatches: finishedBatchesCount,
+      firstFewEntities: state.entities?.slice(0, 3).map(e => ({name: e.name, index: e.index, url: e.url})) ?? [],
+      qualificationCriteria: state.qualificationCriteria,
     });
     
-    // Check if all entities are processed and emit a completion message
-    const batchSize = 15;
-    const totalEntities = state.entities?.length ?? 0;
-    const finished = state.finishedBatches * batchSize >= totalEntities;
-    
-    if (finished) {
+    // Check if all entities are processed and all dispatched batches are finished
+    const allDispatchedBatchesFinished = finishedBatchesCount * batchSize >= currentProcessedCount;
+    const allEntitiesAccountedFor = currentProcessedCount >= totalEntities;
+
+    if (allEntitiesAccountedFor && allDispatchedBatchesFinished) {
+      console.log("QualificationRouter: All entities processed and batches finished. Signaling completion.");
       const doneMsg = new AIMessage({ content: "The search and qualification process is complete." });
       return { 
-        parentMessages: [doneMsg]
+        parentMessages: [doneMsg],
+        // No change to processedEntityCount needed here, it's already >= totalEntities
       };
     }
     
-    // Return empty state update for intermediate steps
-    return {};
+    // Calculate the next processedEntityCount: how many entities *should* be processed
+    // considering maxWorkers and batchSize. This is the upper limit for assignQualificationWorkers.
+    const maxWorkers = 4;
+    const activeBatches = Math.ceil(currentProcessedCount / batchSize) - finishedBatchesCount;
+    const availableCapacityForBatches = Math.max(0, maxWorkers - activeBatches);
+    
+    let newProcessedEntityCount = currentProcessedCount;
+    if (availableCapacityForBatches > 0 && currentProcessedCount < totalEntities) {
+      // How many more entities can we aim to process with the available capacity?
+      const entitiesToProcessWithCapacity = availableCapacityForBatches * batchSize;
+      newProcessedEntityCount = Math.min(totalEntities, currentProcessedCount + entitiesToProcessWithCapacity);
+    }
+    
+    const update: Partial<ParentAppStateUpdate> = {};
+    if (newProcessedEntityCount > currentProcessedCount) {
+      update.processedEntityCount = newProcessedEntityCount;
+      console.log(`QualificationRouter: Updating processedEntityCount from ${currentProcessedCount} to ${newProcessedEntityCount}`);
+    }
+
+    return update; // Return potential update to processedEntityCount
   }
 );
 parentWorkflow.addNode("entityQualification", entityQualificationGraph as any);

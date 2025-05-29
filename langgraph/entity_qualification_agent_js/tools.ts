@@ -20,6 +20,30 @@ interface ExaContentsResponse {
   results: ExaSearchResult[];
 }
 
+// Add utility functions for robust name normalization
+function normalizeEntityName(name: string): string {
+  // Normalize unicode characters (e.g., é -> e)
+  const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  
+  // Convert to lowercase for comparison
+  const lowercased = normalized.toLowerCase();
+  
+  // Replace multiple spaces with single space
+  const singleSpaced = lowercased.replace(/\s+/g, " ");
+  
+  // Trim whitespace
+  const trimmed = singleSpaced.trim();
+  
+  // Remove common punctuation that might cause mismatches
+  const noPunctuation = trimmed.replace(/['"''""`]/g, "");
+  
+  return noPunctuation;
+}
+
+function areNamesEquivalent(name1: string, name2: string): boolean {
+  return normalizeEntityName(name1) === normalizeEntityName(name2);
+}
+
 const webCrawlSchema = z.object({
   links: z.array(z.string()).describe("A list of strings (URLs) to scrape."),
 });
@@ -213,80 +237,178 @@ export const verifyQualificationConsistencyTool = new DynamicStructuredTool({
   schema: verifyInputsSchema,
   func: async (args: z.infer<typeof verifyInputsSchema>) => {
     const { entitiesToQualify, qualificationSummary } = args;
-    const summaryEntityNames = qualificationSummary.map(
-      (item: QualificationItem) => item.entity_name,
-    );
-    const qualifyNames = entitiesToQualify.map((e) => e.name);
-
+    
     const issues: Record<string, any> = {
       duplicates_found_now: [],
       missing_entities_now: [],
       extra_entities_now: [],
-      potential_name_mismatches_details: [], // tracks possible name typos
-      final_consistency: true,
+      potential_name_mismatches_details: [],
+      index_mismatches: [],
+      final_consistency: false,
+      suggested_corrections: []
     };
 
-    // Calculate duplicates
-    const nameCounts = summaryEntityNames.reduce(
-      (acc: Record<string, number>, name: string) => {
-        acc[name] = (acc[name] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
+    // Create maps for efficient lookup
+    const entityMap = new Map(
+      entitiesToQualify.map(e => [e.index, { name: e.name, url: e.url }])
     );
-    issues.duplicates_found_now = Object.entries(nameCounts)
-      .filter(([_name, count]: [string, number]) => count > 1)
-      .map(([name]) => name);
-
-    const summarySet = new Set(summaryEntityNames);
-    const entitiesToQualifySet = new Set(qualifyNames);
-
-    // Calculate initial missing and extra entities
-    const initialMissingEntities = qualifyNames.filter(
-      (name: string) => !summarySet.has(name),
+    
+    const summaryMap = new Map(
+      qualificationSummary.map(item => [item.index, item])
     );
-    issues.missing_entities_now = [...initialMissingEntities]; // Store the full list
 
-    const initialExtraEntities = summaryEntityNames.filter(
-      (name: string) => !entitiesToQualifySet.has(name),
-    );
-    issues.extra_entities_now = [...initialExtraEntities]; // Store the full list
-
-    // Identify potential name mismatches (case/space differences)
-    const normalizedMissing = new Map(
-      initialMissingEntities.map((name) => [name.trim().toLowerCase(), name]),
-    );
-    const potentialMismatchesList: Array<{
-      summary_name: string;
-      qualify_list_name: string;
-      reason: string;
-    }> = [];
-
-    for (const extraName of initialExtraEntities) {
-      const match = normalizedMissing.get(extraName.trim().toLowerCase());
-      if (match) {
-        potentialMismatchesList.push({
-          summary_name: extraName,
-          qualify_list_name: match,
-          reason: "Probable typo due to spacing/casing differences.",
-        });
-        normalizedMissing.delete(extraName.trim().toLowerCase());
+    // Check for index mismatches
+    for (const [index, entity] of entityMap) {
+      const summaryItem = summaryMap.get(index);
+      if (summaryItem) {
+        // Check if names match (with normalization)
+        if (!areNamesEquivalent(entity.name, summaryItem.entity_name)) {
+          issues.index_mismatches.push({
+            index,
+            expected_name: entity.name,
+            actual_name: summaryItem.entity_name,
+            normalized_expected: normalizeEntityName(entity.name),
+            normalized_actual: normalizeEntityName(summaryItem.entity_name)
+          });
+        }
       }
     }
-    issues.potential_name_mismatches_details = potentialMismatchesList;
 
-    // The final_consistency check should still rely on the original definitions of missing/extra being empty.
-    // If potential_name_mismatches_details is not empty, it implies that
-    // initialMissingEntities and/or initialExtraEntities will also not be empty,
-    // thus final_consistency will be false.
+    // Check for duplicates in summary (by normalized name)
+    const normalizedNameCounts = new Map<string, number>();
+    const nameToOriginal = new Map<string, string[]>();
+    
+    for (const item of qualificationSummary) {
+      const normalized = normalizeEntityName(item.entity_name);
+      normalizedNameCounts.set(normalized, (normalizedNameCounts.get(normalized) || 0) + 1);
+      
+      if (!nameToOriginal.has(normalized)) {
+        nameToOriginal.set(normalized, []);
+      }
+      nameToOriginal.get(normalized)!.push(item.entity_name);
+    }
+    
+    // Find duplicates
+    for (const [normalized, count] of normalizedNameCounts) {
+      if (count > 1) {
+        const originals = nameToOriginal.get(normalized)!;
+        issues.duplicates_found_now.push({
+          normalized_name: normalized,
+          occurrences: originals,
+          count
+        });
+      }
+    }
+
+    // Check for missing entities (by index)
+    const missingByIndex: number[] = [];
+    for (const [index, entity] of entityMap) {
+      if (!summaryMap.has(index)) {
+        missingByIndex.push(index);
+        issues.missing_entities_now.push({
+          index,
+          name: entity.name,
+          url: entity.url
+        });
+      }
+    }
+
+    // Check for extra entities (indices in summary but not in entitiesToQualify)
+    for (const [index, item] of summaryMap) {
+      if (!entityMap.has(index)) {
+        issues.extra_entities_now.push({
+          index,
+          entity_name: item.entity_name,
+          qualified: item.qualified,
+          reasoning: item.reasoning
+        });
+      }
+    }
+
+    // Generate suggested corrections for missing entities
+    for (const missingIndex of missingByIndex) {
+      const entity = entityMap.get(missingIndex)!;
+      
+      // Try to find a potential match in extra entities
+      let bestMatch = null;
+      let bestScore = 0;
+      
+      for (const extraItem of issues.extra_entities_now) {
+        const similarity = calculateNameSimilarity(entity.name, extraItem.entity_name);
+        if (similarity > bestScore && similarity > 0.7) {
+          bestScore = similarity;
+          bestMatch = extraItem;
+        }
+      }
+      
+      issues.suggested_corrections.push({
+        missing_entity: {
+          index: missingIndex,
+          name: entity.name
+        },
+        suggested_action: bestMatch ? 
+          `Replace extra entity "${bestMatch.entity_name}" (index ${bestMatch.index}) with correct entity "${entity.name}" at index ${missingIndex}` :
+          `Add missing entity "${entity.name}" at index ${missingIndex}`,
+        confidence: bestMatch ? bestScore : 0
+      });
+    }
+
+    // Final consistency check
     issues.final_consistency =
       issues.duplicates_found_now.length === 0 &&
-      initialMissingEntities.length === 0 &&
-      initialExtraEntities.length === 0;
+      issues.missing_entities_now.length === 0 &&
+      issues.extra_entities_now.length === 0 &&
+      issues.index_mismatches.length === 0;
 
     return { verificationResults: issues };
   },
 });
+
+// Helper function to calculate similarity between two names
+function calculateNameSimilarity(name1: string, name2: string): number {
+  const norm1 = normalizeEntityName(name1);
+  const norm2 = normalizeEntityName(name2);
+  
+  if (norm1 === norm2) return 1.0;
+  
+  // Simple character-based similarity
+  const longer = norm1.length > norm2.length ? norm1 : norm2;
+  const shorter = norm1.length > norm2.length ? norm2 : norm1;
+  
+  if (longer.length === 0) return 1.0;
+  
+  const editDistance = levenshteinDistance(shorter, longer);
+  return (longer.length - editDistance) / longer.length;
+}
+
+// Simple Levenshtein distance implementation
+function levenshteinDistance(s1: string, s2: string): number {
+  const matrix: number[][] = [];
+  
+  for (let i = 0; i <= s2.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= s1.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= s2.length; i++) {
+    for (let j = 1; j <= s1.length; j++) {
+      if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  return matrix[s2.length][s1.length];
+}
 
 // Replacing operation-based update tool with full-summary overwrite tool
 const overwriteSummarySchema = z.object({
@@ -324,4 +446,7 @@ export const updateQualificationSummaryStateTool = new DynamicStructuredTool({
 
 export const AGENT_TOOLS = [webCrawl, batchWebSearch, qualifyAllEntitiesTool]; // used by the main qualification agent
 
-export const VERIFICATION_LLM_TOOLS = [qualifyAllEntitiesTool]; // used by the verification agent
+export const VERIFICATION_LLM_TOOLS = [
+  qualifyAllEntitiesTool,
+  updateQualificationSummaryStateTool,
+]; // used by the verification agent

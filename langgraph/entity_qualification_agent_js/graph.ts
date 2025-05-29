@@ -15,7 +15,6 @@ import {
   VERIFICATION_LLM_TOOLS,
   verifyQualificationConsistencyTool,
 } from "./tools.js";
-import { type Entity } from "../list_gen_agent_js/graph.js";
 import { loadChatModelWithRetry as loadChatModel } from "./chatModelWithRetry.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -38,6 +37,13 @@ export enum EntityType {
   NEWS = "news",
 }
 
+// Define Entity with index for this qualification agent
+interface EntityWithIndex {
+  index: number;
+  name: string;
+  url: string;
+}
+
 // Define the new state structure including entities
 const AppStateAnnotation = Annotation.Root({
   qualMessages: Annotation<BaseMessage[]>({
@@ -45,13 +51,13 @@ const AppStateAnnotation = Annotation.Root({
       currentMessages.concat(newMessages),
     default: () => [],
   }),
-  entitiesToQualify: Annotation<Entity[]>({
+  entitiesToQualify: Annotation<EntityWithIndex[]>({
     reducer: (currentState, updateValue) => {
       if (Array.isArray(updateValue)) {
         return currentState.concat(updateValue);
       }
       if (updateValue && typeof updateValue === "object") {
-        return currentState.concat([updateValue as Entity]);
+        return currentState.concat([updateValue as EntityWithIndex]);
       }
       return currentState;
     },
@@ -318,6 +324,62 @@ async function agentNode(
   return { qualMessages: [response], ...updateFromTool };
 }
 
+// Add this function before programmaticVerificationNode
+function deterministicCorrection(
+  entitiesToQualify: EntityWithIndex[],
+  currentQualificationSummary: QualificationItem[]
+): QualificationItem[] {
+  // Create a map of current qualification items by normalized name for reuse
+  const normalizedSummaryMap = new Map<string, QualificationItem>();
+  
+  for (const item of currentQualificationSummary) {
+    const normalizedName = item.entity_name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/['"''""`]/g, "");
+    normalizedSummaryMap.set(normalizedName, item);
+  }
+  
+  // Build the corrected summary ensuring perfect 1:1 match with entitiesToQualify
+  const correctedSummary: QualificationItem[] = [];
+  
+  for (const entity of entitiesToQualify) {
+    // Try to find existing qualification for this entity
+    const normalizedEntityName = entity.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/['"''""`]/g, "");
+    
+    const existingQual = normalizedSummaryMap.get(normalizedEntityName);
+    
+    if (existingQual) {
+      // Use existing qualification but ensure the name matches exactly
+      correctedSummary.push({
+        index: entity.index,
+        entity_name: entity.name, // Use exact name from entitiesToQualify
+        qualified: existingQual.qualified,
+        reasoning: existingQual.reasoning
+      });
+    } else {
+      // No existing qualification found, create a default one
+      correctedSummary.push({
+        index: entity.index,
+        entity_name: entity.name,
+        qualified: false,
+        reasoning: "Unable to determine qualification status after verification attempts. Marked as not qualified by default."
+      });
+    }
+  }
+  
+  return correctedSummary;
+}
+
 async function programmaticVerificationNode(
   state: AppState,
   _config: RunnableConfig,
@@ -357,6 +419,8 @@ async function programmaticVerificationNode(
   }
 
   const { entitiesToQualify } = state;
+  
+  // Use the entities directly since they already have the correct indices
   const toolInput = {
     entitiesToQualify,
     qualificationSummary: currentQualificationSummary,
@@ -408,15 +472,27 @@ async function programmaticVerificationNode(
       final_consistency: false,
     };
   }
+  
   const verificationComplete =
     updateToReturn.verificationResults?.final_consistency === true ||
     (state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS;
+    
   if (verificationComplete) {
-    const batchResults = currentQualificationSummary;
+    let finalBatchResults = currentQualificationSummary;
+    
+    // If we've hit max loops and still not consistent, use deterministic correction
+    if (
+      (state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS &&
+      updateToReturn.verificationResults?.final_consistency !== true
+    ) {
+      console.warn("Max verification loops reached. Applying deterministic correction.");
+      finalBatchResults = deterministicCorrection(entitiesToQualify, currentQualificationSummary);
+    }
+    
     return new Command({
       graph: Command.PARENT,
       update: {
-        qualificationSummary: batchResults,
+        qualificationSummary: finalBatchResults,
         finishedBatches: 1,
       },
     });

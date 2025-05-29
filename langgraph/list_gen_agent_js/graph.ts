@@ -5,15 +5,14 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { RunnableLambda } from "@langchain/core/runnables";
 
 import { ConfigurationSchema, ensureConfiguration } from "./configuration.js";
-import { TOOLS, addEntityIndexes } from "./tools.js";
+import { TOOLS } from "./tools.js";
 import { loadChatModelWithRetry as loadChatModel } from "./chatModelWithRetry.js";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
-// Define the structure for an entity
+// Define the structure for an entity (now raw, without index)
 export interface Entity {
-  index: number;
   name: string;
   url: string;
 }
@@ -178,7 +177,7 @@ async function listGenToolsNode(
   };
 
   if (newEntities && newEntities.length > 0) {
-    update.entities = addEntityIndexes(newEntities, state.entities.length);
+    update.entities = newEntities;
   }
 
   return update;
