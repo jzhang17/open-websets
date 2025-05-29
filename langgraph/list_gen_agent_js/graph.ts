@@ -33,7 +33,27 @@ const AppStateAnnotation = Annotation.Root({
     default: () => [],
   }),
   entities: Annotation<Entity[]>({
-    reducer: (currentState, updateValue) => currentState.concat(updateValue),
+    reducer: (currentState, updateValue) => {
+      const current = Array.isArray(currentState) ? currentState : [];
+      const update = Array.isArray(updateValue) ? updateValue : [];
+      
+      // Create a set of existing entity URLs to check for duplicates
+      const existingUrls = new Set(current.map(entity => entity.url));
+      
+      // Filter out duplicates from the update based on URL
+      const newEntities = update.filter(entity => {
+        if (!entity || typeof entity.url !== 'string') {
+          return false; // Skip invalid entities
+        }
+        const isDuplicate = existingUrls.has(entity.url);
+        if (isDuplicate) {
+          console.log(`List gen subgraph: Preventing duplicate entity with URL ${entity.url}: ${entity.name}`);
+        }
+        return !isDuplicate;
+      });
+      
+      return current.concat(newEntities);
+    },
     default: () => [],
   }),
   qualificationCriteria: Annotation<string>({
@@ -203,8 +223,8 @@ function routeModelOutput(state: AppState): string {
 // https://langchain-ai.github.io/langgraphjs/concepts/low_level/#messagesannotation
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
   // Define the two nodes we will cycle between
-  .addNode("callModel", RunnableLambda.from(callModel).withConfig({ tags: ["nostream"] }))
-  .addNode("tools", RunnableLambda.from(listGenToolsNode).withConfig({ tags: ["nostream"] }))
+  .addNode("callModel", RunnableLambda.from(callModel))
+  .addNode("tools", RunnableLambda.from(listGenToolsNode))
   // Set the entrypoint as `callModel`
   // This means that this node is the first one called
   .addEdge("__start__", "callModel")

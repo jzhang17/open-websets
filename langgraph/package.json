@@ -23,7 +23,7 @@
     "@langchain/core": "^0.3.55",
     "@langchain/google-genai": "^0.2.9",
     "@langchain/google-webauth": "^0.2.9",
-    "@langchain/langgraph": "^0.2.67",
+    "@langchain/langgraph": "^0.2.73",
     "@langchain/langgraph-cli": "^0.0.34",
     "ag-grid-community": "^33.3.0",
     "ag-grid-react": "^33.3.0",

@@ -321,7 +321,7 @@ async function agentNode(
 async function programmaticVerificationNode(
   state: AppState,
   _config: RunnableConfig,
-): Promise<Partial<AppState>> {
+): Promise<Partial<AppState> | Command<"__end__">> {
   let currentQualificationSummary = state.qualificationSummary; // Default to state
   let updateToReturn: Partial<AppState> = {};
 
@@ -604,11 +604,11 @@ function routeAfterAgentToolsNode(state: AppState): string {
 
 // Graph definition
 const workflow = new StateGraph(AppStateAnnotation, ConfigurationSchema)
-  .addNode("agentNode", RunnableLambda.from(agentNode).withConfig({ tags: ["nostream"] }))
-  .addNode("agentToolsNode", RunnableLambda.from(wrappedAgentToolsNode).withConfig({ tags: ["nostream"] }))
-  .addNode("programmaticVerificationNode", RunnableLambda.from(programmaticVerificationNode).withConfig({ tags: ["nostream"] }))
-  .addNode("verificationAgentNode", RunnableLambda.from(verificationAgentNode).withConfig({ tags: ["nostream"] }))
-  .addNode("verificationToolsNode", RunnableLambda.from(wrappedVerificationToolsNode).withConfig({ tags: ["nostream"] }));
+  .addNode("agentNode", RunnableLambda.from(agentNode))
+  .addNode("agentToolsNode", RunnableLambda.from(wrappedAgentToolsNode))
+  .addNode("programmaticVerificationNode", RunnableLambda.from(programmaticVerificationNode))
+  .addNode("verificationAgentNode", RunnableLambda.from(verificationAgentNode))
+  .addNode("verificationToolsNode", RunnableLambda.from(wrappedVerificationToolsNode));
 
 // Define edges on the fully typed workflow object
 workflow.addEdge("__start__", "agentNode");

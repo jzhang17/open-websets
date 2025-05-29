@@ -54,7 +54,11 @@ export function useLangGraphStreamAndSend({
   // Construct the full API URL for client-side execution
   let apiUrl = "/api/langgraph";
   if (typeof window !== "undefined") {
-    apiUrl = `${window.location.origin}/api/langgraph`;
+    if (process.env.NODE_ENV === 'development') {
+      apiUrl = "http://localhost:2024";
+    } else {
+      apiUrl = `${window.location.origin}/api/langgraph`;
+    }
   }
 
   const streamHookResult = useStream<AgentState, { UpdateType: AgentUpdate }>({
@@ -62,6 +66,7 @@ export function useLangGraphStreamAndSend({
     assistantId: "agent",
     threadId: threadId ?? undefined,
     messagesKey: "parentMessages",
+    subgraph: true,
     // Stream both messages and values to get state updates
     streamMode: ["messages", "values"],
     recursionLimit: 50,

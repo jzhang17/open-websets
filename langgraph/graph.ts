@@ -31,10 +31,35 @@ const ParentAppStateAnnotation = Annotation.Root({
   }),
   entities: Annotation<Entity[]>({
     reducer: (currentState, updateValue) => {
-      // Ensure both are arrays before concatenating
+      // Ensure both are arrays before processing
       const current = Array.isArray(currentState) ? currentState : [];
       const update = Array.isArray(updateValue) ? updateValue : [];
-      return current.concat(update);
+      
+      // Create a map of existing entities by index to check for duplicates
+      const existingEntitiesMap = new Map();
+      current.forEach(entity => {
+        if (entity && typeof entity.index === 'number') {
+          existingEntitiesMap.set(entity.index, entity);
+        }
+      });
+      
+      // Filter out duplicates from the update based on index
+      const newEntities = update.filter(entity => {
+        if (!entity || typeof entity.index !== 'number') {
+          return false; // Skip invalid entities
+        }
+        const isDuplicate = existingEntitiesMap.has(entity.index);
+        if (isDuplicate) {
+          console.log(`Preventing duplicate entity with index ${entity.index}: ${entity.name}`);
+        }
+        return !isDuplicate;
+      });
+      
+      if (newEntities.length !== update.length) {
+        console.log(`Entities reducer: Filtered ${update.length - newEntities.length} duplicate entities`);
+      }
+      
+      return current.concat(newEntities);
     },
     default: () => [],
   }),
@@ -48,10 +73,38 @@ const ParentAppStateAnnotation = Annotation.Root({
   }),
   qualificationSummary: Annotation<QualificationItem[]>({
     reducer: (currentState, updateValue) => {
-      // Ensure both are arrays before concatenating
+      // Ensure both are arrays before processing
       const current = Array.isArray(currentState) ? currentState : [];
       const update = Array.isArray(updateValue) ? updateValue : [];
-      return current.concat(update);
+      
+      // Create a map of existing qualification items by index to check for duplicates
+      const existingQualificationMap = new Map();
+      current.forEach(item => {
+        if (item && typeof item.index === 'number') {
+          existingQualificationMap.set(item.index, item);
+        }
+      });
+      
+      // Filter out duplicates from the update based on index, but allow updates to existing items
+      const newItems: QualificationItem[] = [];
+      update.forEach(item => {
+        if (item && typeof item.index === 'number') {
+          // Always add the item (this allows updating existing qualifications)
+          // Remove the existing item first if it exists
+          if (existingQualificationMap.has(item.index)) {
+            // We'll handle the replacement by filtering current items
+            existingQualificationMap.set(item.index, item);
+          } else {
+            newItems.push(item);
+          }
+        }
+      });
+      
+      // Filter current items to remove those that are being updated
+      const updatedIndexes = new Set(update.filter(item => item && typeof item.index === 'number').map(item => item.index));
+      const filteredCurrent = current.filter(item => !updatedIndexes.has(item.index));
+      
+      return filteredCurrent.concat(update);
     },
     default: () => [],
   }),
