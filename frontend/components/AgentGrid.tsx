@@ -56,20 +56,6 @@ function AgentGridComponent({}: AgentGridProps) {
   const entities: Entity[] = stateValues.entities || [];
   const qualificationSummary: QualificationItem[] = stateValues.qualificationSummary || [];
 
-  // Debug logging to check if state is being received
-  useEffect(() => {
-    console.log('AgentGrid state update:', {
-      hasStream: !!stream,
-      hasValues: !!stream?.values,
-      entitiesCount: entities.length,
-      qualificationSummaryCount: qualificationSummary.length,
-      stateKeys: Object.keys(stateValues),
-      allStateValues: stateValues, // Log full state values for complete debugging
-      entities: entities.slice(0, 3), // Log first 3 entities for debugging
-      qualificationSummary: qualificationSummary.slice(0, 3), // Log first 3 qualification items for debugging
-    });
-  }, [entities.length, qualificationSummary.length, JSON.stringify(stateValues)]);
-
   // Build the appropriate AG Grid theme object
   const gridTheme = useMemo(() => {
     return resolvedTheme === "dark"

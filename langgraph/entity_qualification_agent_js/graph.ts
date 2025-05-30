@@ -243,7 +243,7 @@ async function agentNode(
   const configuration = ensureConfiguration(config);
   const model = (await loadChatModel(configuration.model)).bindTools(
     AGENT_TOOLS,
-  );
+  ).withConfig({ tags: ["nostream"] });
 
   // Prepare system message
   // The system prompt references state.entitiesToQualify and state.qualificationSummary
@@ -507,7 +507,7 @@ async function verificationAgentNode(
   const configuration = ensureConfiguration(config);
   const model = (await loadChatModel(configuration.model)).bindTools(
     VERIFICATION_LLM_TOOLS,
-  ).withRetry({ stopAfterAttempt: 3 });
+  ).withRetry({ stopAfterAttempt: 3 }).withConfig({ tags: ["nostream"] });
 
   const entitiesToQualifyString = JSON.stringify(
     state.entitiesToQualify,

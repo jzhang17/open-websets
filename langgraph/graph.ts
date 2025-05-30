@@ -279,7 +279,7 @@ async function callAgentModel(
   config: RunnableConfig,
 ): Promise<ParentAppStateUpdate> {
   const configuration = ensureConfiguration(config);
-  const model = (await loadChatModel(configuration.model)).bindTools(TOOLS).withRetry({ stopAfterAttempt: 3 });
+  const model = (await loadChatModel(configuration.model)).bindTools(TOOLS).withRetry({ stopAfterAttempt: 3 }).withConfig({ tags: ["nostream"] });
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const systemPromptPath = path.join(__dirname, "system_prompt.md");

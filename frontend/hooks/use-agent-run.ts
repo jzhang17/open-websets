@@ -66,9 +66,8 @@ export function useLangGraphStreamAndSend({
     assistantId: "agent",
     threadId: threadId ?? undefined,
     messagesKey: "parentMessages",
-    subgraph: true,
     // Stream both messages and values to get state updates
-    streamMode: ["messages", "values"],
+    streamMode: ["messages", "updates"],
     recursionLimit: 50,
     reconnect: true,
     reconnectDelay: 1000,

@@ -191,7 +191,7 @@ async function callModel(
   /** Call the LLM powering our agent. **/
   const configuration = ensureConfiguration(config);
 
-  const model = (await loadChatModel(configuration.model)).bindTools(TOOLS).withRetry({ stopAfterAttempt: 3 });
+  const model = (await loadChatModel(configuration.model)).bindTools(TOOLS).withRetry({ stopAfterAttempt: 3 }).withConfig({ tags: ["nostream"] });
 
   const response = await model.invoke([
     {
