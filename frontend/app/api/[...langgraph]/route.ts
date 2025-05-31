@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Vercel timeout configuration for LangGraph operations
+export const maxDuration = 300; // 5 minutes (Pro plan limit)
+export const runtime = 'nodejs'; // Keep on Node.js runtime
+
 async function forwardRequest(req: NextRequest, method: string) {
   // Forward the request to the LangGraph service
   const slug = req.nextUrl.pathname.replace(/^\/api\/langgraph/, "");
