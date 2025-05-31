@@ -108,14 +108,7 @@ const AppStateAnnotation = Annotation.Root({
       typeof updateValue === "number" ? updateValue : currentState,
     default: () => 0,
   }),
-  finishedBatches: Annotation<number>({
-    reducer: (currentState, updateValue) => {
-      const current = typeof currentState === "number" ? currentState : 0;
-      const update = typeof updateValue === "number" ? updateValue : 0;
-      return current + update;
-    },
-    default: () => 0,
-  }),
+
 });
 
 type AppState = typeof AppStateAnnotation.State;
@@ -407,7 +400,8 @@ async function programmaticVerificationNode(
         ) {
           currentQualificationSummary = parsedContent.update
             .qualificationSummary as QualificationItem[];
-          updateToReturn.qualificationSummary = currentQualificationSummary;
+          // Do not update updateToReturn.qualificationSummary here yet,
+          // as we want deterministicCorrection to be the source of truth for parent update.
         }
       } catch (e) {
         console.error(
@@ -423,7 +417,7 @@ async function programmaticVerificationNode(
   // Use the entities directly since they already have the correct indices
   const toolInput = {
     entitiesToQualify,
-    qualificationSummary: currentQualificationSummary,
+    qualificationSummary: currentQualificationSummary, // Use the potentially updated summary for the tool
   };
 
   try {
@@ -478,25 +472,35 @@ async function programmaticVerificationNode(
     (state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS;
     
   if (verificationComplete) {
-    let finalBatchResults = currentQualificationSummary;
+    // ALWAYS use deterministicCorrection to ensure the summary sent to parent is complete and aligned.
+    const finalSanitizedBatchResults = deterministicCorrection(entitiesToQualify, currentQualificationSummary);
     
-    // If we've hit max loops and still not consistent, use deterministic correction
     if (
       (state.verificationLoopCount || 0) >= MAX_VERIFICATION_LOOPS &&
       updateToReturn.verificationResults?.final_consistency !== true
     ) {
-      console.warn("Max verification loops reached. Applying deterministic correction.");
-      finalBatchResults = deterministicCorrection(entitiesToQualify, currentQualificationSummary);
+      console.warn("Max verification loops reached. Outputting deterministically corrected summary to parent.");
+    } else if (updateToReturn.verificationResults?.final_consistency === true) {
+      // Optional: Log if the summary was indeed altered by deterministicCorrection
+      // This can be helpful for debugging if the original summary was sparse.
+      const originalSummaryLength = currentQualificationSummary?.length ?? 0;
+      const correctedSummaryLength = finalSanitizedBatchResults?.length ?? 0;
+      if (originalSummaryLength !== correctedSummaryLength || 
+          !currentQualificationSummary.every(item => finalSanitizedBatchResults.find(s => s.index === item.index && s.qualified === item.qualified && s.reasoning === item.reasoning))) {
+        console.log("Verification deemed consistent, but summary was sanitized/aligned by deterministicCorrection before sending to parent.");
+      }
     }
     
     return new Command({
       graph: Command.PARENT,
       update: {
-        qualificationSummary: finalBatchResults,
-        finishedBatches: 1,
+        qualificationSummary: finalSanitizedBatchResults, // Send the sanitized and aligned results
       },
     });
   }
+  // If verification is not complete, return the updates for the subgraph to continue its internal loop.
+  // This includes the current qualificationSummary that might be used by the verification LLM.
+  updateToReturn.qualificationSummary = currentQualificationSummary; 
   return updateToReturn;
 }
 

@@ -132,14 +132,7 @@ const ParentAppStateAnnotation = Annotation.Root({
     },
     default: () => 0,
   }),
-  finishedBatches: Annotation<number>({
-    reducer: (currentState, updateValue) => {
-      const current = typeof currentState === "number" ? currentState : 0;
-      const update = typeof updateValue === "number" ? updateValue : 0;
-      return current + update;
-    },
-    default: () => 0,
-  }),
+
   listGenMessages: Annotation<BaseMessage[]>({
     reducer: (_currentState, updateValue) => updateValue,
     default: () => [],
@@ -362,60 +355,66 @@ function assignQualificationWorkers(state: ParentAppState): Send[] | "__end__" {
     entities,
     processedEntityCount = 0, // Target up to which entities should be processed (set by router)
     qualificationCriteria,
-    finishedBatches = 0,
+    qualificationSummary = [],
   } = state;
   const batchSize = 5;
   const maxWorkers = 10;
   const totalEntities = entities?.length ?? 0;
 
-  // If all entities are genuinely finished, signal end. This is a primary termination path.
-  if (finishedBatches * batchSize >= totalEntities && totalEntities > 0) {
-    console.log("assignQualificationWorkers: All entities covered by finished batches. Signaling __end__.");
-    return "__end__";
-  }
   if (totalEntities === 0) {
     console.log("assignQualificationWorkers: No entities to process. Signaling __end__.");
     return "__end__";
   }
 
-  const sends: Send[] = [];
-  let currentStartIndexForBatch = finishedBatches * batchSize;
-  let batchesSentInThisCall = 0;
-
-  // Loop while:
-  // 1. The start of our next potential batch is less than the total entities.
-  // 2. The start of our next potential batch is less than the target 'processedEntityCount'.
-  // 3. We haven't sent 'maxWorkers' batches in this current invocation.
-  while (
-    currentStartIndexForBatch < totalEntities &&
-    currentStartIndexForBatch < processedEntityCount &&
-    batchesSentInThisCall < maxWorkers
-  ) {
-    const start = currentStartIndexForBatch;
-    // Batch should not go beyond totalEntities or the processedEntityCount target
-    const end = Math.min(start + batchSize, totalEntities, processedEntityCount);
-
-    if (start >= end) { 
-      console.log(`assignQualificationWorkers: Breaking loop due to start (${start}) >= end (${end}). This might occur if processedEntityCount aligns with a batch boundary already covered by finishedBatches, or if processedEntityCount is less than currentStartIndexForBatch.`);
-      break;
+  // Create a set of qualified entity indices to determine what's already processed
+  const qualifiedIndices = new Set(qualificationSummary.map(item => item.index));
+  
+  // Find all unprocessed entities up to the processedEntityCount target
+  const unprocessedEntities: Entity[] = [];
+  for (const entity of entities) {
+    if (entity.index < processedEntityCount && !qualifiedIndices.has(entity.index)) {
+      unprocessedEntities.push(entity);
     }
+  }
 
-    const batchEntities = entities.slice(start, end).map((e) => ({
+  // If no unprocessed entities within our target range, check if we're completely done
+  if (unprocessedEntities.length === 0) {
+    // Check if ALL entities are processed (not just up to processedEntityCount)
+    const allEntitiesProcessed = entities.every(entity => qualifiedIndices.has(entity.index));
+    if (allEntitiesProcessed) {
+      console.log("assignQualificationWorkers: All entities are qualified. Signaling __end__.");
+      return "__end__";
+    } else {
+      console.log("assignQualificationWorkers: No unprocessed entities in current target range. Continuing without sends.");
+      return [];
+    }
+  }
+
+  // Sort unprocessed entities by index to process them in order
+  unprocessedEntities.sort((a, b) => a.index - b.index);
+
+  const sends: Send[] = [];
+  let batchesSentInThisCall = 0;
+  let currentBatchStart = 0;
+
+  // Group unprocessed entities into batches
+  while (currentBatchStart < unprocessedEntities.length && batchesSentInThisCall < maxWorkers) {
+    const batchEnd = Math.min(currentBatchStart + batchSize, unprocessedEntities.length);
+    const batchEntities = unprocessedEntities.slice(currentBatchStart, batchEnd).map((e) => ({
       index: e.index,
       name: e.name,
       url: e.url,
     }));
 
     if (batchEntities.length === 0) {
-      console.log(`assignQualificationWorkers: Empty batch slice from ${start} to ${end}. Advancing start index.`);
-      currentStartIndexForBatch = end; // Ensure progress past this empty segment
-      continue;
+      break;
     }
     
     const batchNames = batchEntities.map((e) => e.name);
+    const batchIndices = batchEntities.map((e) => e.index);
     const qualInstruction = `Please qualify the following entities: ${batchNames.join(", ")}. The qualification criteria are: ${qualificationCriteria}`;
     
-    console.log(`assignQualificationWorkers: Dispatching batch for entities from index ${start} to ${end-1}. Count: ${batchEntities.length}. Batches sent this call: ${batchesSentInThisCall + 1}`);
+    console.log(`assignQualificationWorkers: Dispatching batch for entity indices ${batchIndices.join(", ")}. Count: ${batchEntities.length}. Batches sent this call: ${batchesSentInThisCall + 1}`);
     sends.push(
       new Send("entityQualification", {
         entitiesToQualify: batchEntities,
@@ -423,12 +422,13 @@ function assignQualificationWorkers(state: ParentAppState): Send[] | "__end__" {
         qualificationCriteria,
       }),
     );
-    currentStartIndexForBatch = end; // Move to the start of the next potential batch
+    
+    currentBatchStart = batchEnd;
     batchesSentInThisCall++;
   }
   
   if (sends.length === 0) {
-      console.log(`assignQualificationWorkers: No sends made this cycle. Conditions: currentStartIndexForBatch=${currentStartIndexForBatch}, processedEntityCount=${processedEntityCount}, totalEntities=${totalEntities}, batchesSentInThisCall (target was < maxWorkers)=${batchesSentInThisCall}`);
+    console.log(`assignQualificationWorkers: No sends made this cycle. Unprocessed entities: ${unprocessedEntities.length}, maxWorkers: ${maxWorkers}, batchesSentInThisCall: ${batchesSentInThisCall}`);
   }
   
   return sends; // Return Send[] (can be empty) or "__end__"
@@ -471,36 +471,43 @@ parentWorkflow.addNode(
     const batchSize = 5;
     const totalEntities = state.entities?.length ?? 0;
     const currentProcessedCount = state.processedEntityCount ?? 0;
-    const finishedBatchesCount = state.finishedBatches ?? 0;
+    const qualificationSummary = state.qualificationSummary ?? [];
 
     // Debug logging to track state
     console.log('QualificationRouter state:', {
       entitiesCount: totalEntities,
-      qualificationSummaryCount: state.qualificationSummary?.length ?? 0,
+      qualificationSummaryCount: qualificationSummary.length,
       processedEntityCount: currentProcessedCount,
-      finishedBatches: finishedBatchesCount,
       firstFewEntities: state.entities?.slice(0, 3).map(e => ({name: e.name, index: e.index, url: e.url})) ?? [],
       qualificationCriteria: state.qualificationCriteria,
     });
     
-    // Check if all entities are processed and all dispatched batches are finished
-    const allDispatchedBatchesFinished = finishedBatchesCount * batchSize >= currentProcessedCount;
-    const allEntitiesAccountedFor = currentProcessedCount >= totalEntities;
+    // Create a set of qualified entity indices to check completion
+    const qualifiedIndices = new Set(qualificationSummary.map(item => item.index));
+    
+    // Check if all entities are processed
+    const allEntitiesQualified = state.entities?.every(entity => qualifiedIndices.has(entity.index)) ?? false;
 
-    if (allEntitiesAccountedFor && allDispatchedBatchesFinished) {
-      console.log("QualificationRouter: All entities processed and batches finished. Signaling completion.");
+    if (allEntitiesQualified && totalEntities > 0) {
+      console.log("QualificationRouter: All entities are qualified. Signaling completion.");
       const doneMsg = new AIMessage({ content: "The search and qualification process is complete." });
       return { 
         parentMessages: [doneMsg],
-        // No change to processedEntityCount needed here, it's already >= totalEntities
       };
     }
     
     // Calculate the next processedEntityCount: how many entities *should* be processed
     // considering maxWorkers and batchSize. This is the upper limit for assignQualificationWorkers.
     const maxWorkers = 10;
-    const activeBatches = Math.ceil(currentProcessedCount / batchSize) - finishedBatchesCount;
-    const availableCapacityForBatches = Math.max(0, maxWorkers - activeBatches);
+    
+    // Count how many entities are currently unqualified within our current target
+    const unqualifiedInRange = state.entities?.filter(entity => 
+      entity.index < currentProcessedCount && !qualifiedIndices.has(entity.index)
+    ).length ?? 0;
+    
+    // Estimate active batches based on unqualified entities
+    const estimatedActiveBatches = Math.ceil(unqualifiedInRange / batchSize);
+    const availableCapacityForBatches = Math.max(0, maxWorkers - estimatedActiveBatches);
     
     let newProcessedEntityCount = currentProcessedCount;
     if (availableCapacityForBatches > 0 && currentProcessedCount < totalEntities) {
@@ -511,7 +518,7 @@ parentWorkflow.addNode(
     
     if (newProcessedEntityCount > currentProcessedCount) {
       update.processedEntityCount = newProcessedEntityCount;
-      console.log(`QualificationRouter: Updating processedEntityCount from ${currentProcessedCount} to ${newProcessedEntityCount}`);
+      console.log(`QualificationRouter: Updating processedEntityCount from ${currentProcessedCount} to ${newProcessedEntityCount}. Unqualified in current range: ${unqualifiedInRange}`);
     }
 
     return update; // Return potential update to processedEntityCount
