@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "app/api/[...langgraph]/route.ts": {
+      "maxDuration": 300,
+      "memory": 2048
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/langgraph/:path*",
+      "destination": "/api/[...langgraph]"
+    }
+  ]
+} 
