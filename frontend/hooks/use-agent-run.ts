@@ -66,8 +66,29 @@ export function useLangGraphStreamAndSend({
     assistantId: "agent",
     threadId: threadId ?? undefined,
     messagesKey: "parentMessages",
-    // Stream messages and values to get state updates, optimized for grid display
-    streamMode: ["messages", "values"],
+    // Stream messages for LLM tokens & custom events for lightweight updates
+    streamMode: ["messages", "custom"],
+    // Merge lightweight custom events (grid updates) into local state
+    onCustomEvent: (data: any, { mutate }) => {
+      if (!data || typeof data !== "object" || data.type !== "gridUpdate") {
+        return;
+      }
+
+      mutate((prev: AgentState | undefined): Partial<AgentState> => {
+        const newState: Partial<AgentState> = { ...prev };
+
+        if (Array.isArray(data.entities)) {
+          newState.entities = data.entities;
+        }
+
+        if (Array.isArray(data.qualificationSummary)) {
+          const prevSummary = prev?.qualificationSummary ?? [];
+          newState.qualificationSummary = [...prevSummary, ...data.qualificationSummary];
+        }
+
+        return newState;
+      });
+    },
     recursionLimit: 50,
     reconnect: true,
     reconnectDelay: 1000,
@@ -250,123 +271,3 @@ export function useAgentRunWithReactQuery(props: UseAgentRunProps) {
 // export interface AppMessage extends LangGraphMessage {
 //   customProperty?: string;
 // }
-
-// Optimized hook for grid updates that tracks incremental changes
-export function useOptimizedAgentRun({
-  threadId,
-  initialInput,
-  onThreadId,
-}: UseAgentRunProps) {
-  // Use the main stream hook but with optimized callbacks
-  const streamHook = useLangGraphStreamAndSend({ threadId, initialInput, onThreadId });
-  
-  // Track previous state to only update when entities or qualificationSummary change
-  const prevStateRef = useRef<{
-    entitiesCount: number;
-    qualificationSummaryCount: number;
-    entitiesSent: boolean;
-    lastSentSummaryCount: number;
-  }>({
-    entitiesCount: 0,
-    qualificationSummaryCount: 0,
-    entitiesSent: false,
-    lastSentSummaryCount: 0,
-  });
-  
-  const [optimizedState, setOptimizedState] = useState<{
-    entities: Array<{
-      index: number;
-      name: string;
-      url: string;
-    }>;
-    qualificationSummary: Array<{
-      index: number;
-      qualified: boolean | null;
-      reasoning: string;
-    }>;
-    hasNewData: boolean;
-  }>({
-    entities: [],
-    qualificationSummary: [],
-    hasNewData: false,
-  });
-
-  // Monitor stream values for changes that affect the grid
-  useEffect(() => {
-    const currentState = streamHook.stream.values;
-    if (!currentState) return;
-
-    const currentEntitiesCount = currentState.entities?.length || 0;
-    const currentQualificationSummaryCount = currentState.qualificationSummary?.length || 0;
-    const currentEntitiesSent = (currentState as any).entitiesSent || false;
-    const currentLastSentSummaryCount = (currentState as any).lastSentSummaryCount || 0;
-    
-    const prevState = prevStateRef.current;
-    
-    // Check if there are meaningful changes for the grid
-    const hasEntitiesChanged = currentEntitiesCount !== prevState.entitiesCount;
-    const hasQualificationChanged = currentQualificationSummaryCount !== prevState.qualificationSummaryCount;
-    const hasTrackingChanged = 
-      currentEntitiesSent !== prevState.entitiesSent ||
-      currentLastSentSummaryCount !== prevState.lastSentSummaryCount;
-    
-    if (hasEntitiesChanged || hasQualificationChanged || hasTrackingChanged) {
-      console.log('Optimized grid state change detected:', {
-        entitiesChanged: hasEntitiesChanged,
-        qualificationChanged: hasQualificationChanged,
-        trackingChanged: hasTrackingChanged,
-        prevEntitiesCount: prevState.entitiesCount,
-        currentEntitiesCount,
-        prevQualificationCount: prevState.qualificationSummaryCount,
-        currentQualificationCount: currentQualificationSummaryCount,
-      });
-      
-      setOptimizedState({
-        entities: currentState.entities || [],
-        qualificationSummary: currentState.qualificationSummary || [],
-        hasNewData: true,
-      });
-      
-      // Update previous state tracking
-      prevStateRef.current = {
-        entitiesCount: currentEntitiesCount,
-        qualificationSummaryCount: currentQualificationSummaryCount,
-        entitiesSent: currentEntitiesSent,
-        lastSentSummaryCount: currentLastSentSummaryCount,
-      };
-    }
-  }, [streamHook.stream.values]);
-
-  // Also monitor messages for grid update hints
-  useEffect(() => {
-    const messages = streamHook.messages;
-    if (!messages || messages.length === 0) return;
-
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && typeof lastMessage === 'object' && 'additional_kwargs' in lastMessage) {
-      const additionalKwargs = (lastMessage as any).additional_kwargs;
-      if (additionalKwargs && additionalKwargs.grid_update) {
-        const gridUpdate = additionalKwargs.grid_update;
-        console.log('Grid update hint received:', gridUpdate);
-        
-        // This could trigger a more targeted update in the future
-        // For now, it serves as a signal that important data has changed
-      }
-    }
-  }, [streamHook.messages]);
-
-  return {
-    messages: streamHook.messages,
-    isLoading: streamHook.isLoading,
-    error: processStreamError(streamHook.error),
-    send: streamHook.send,
-    stop: streamHook.stop,
-    stream: streamHook.stream,
-    // Optimized grid data
-    gridData: optimizedState,
-    // Method to mark data as consumed
-    markDataConsumed: useCallback(() => {
-      setOptimizedState(prev => ({ ...prev, hasNewData: false }));
-    }, []),
-  };
-}

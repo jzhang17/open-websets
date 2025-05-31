@@ -448,23 +448,37 @@ parentWorkflow.addNode("agentTools", parentAgentToolsNode);
 parentWorkflow.addNode("listGeneration", listGenerationGraph as any);
 parentWorkflow.addNode(
   "qualificationRouter",
-  async (state: ParentAppState, config: RunnableConfig) => {
+  async (state: ParentAppState, config: RunnableConfig, writer?: any) => {
+    const update: Partial<ParentAppStateUpdate> = {};
+
+    // 1. Emit full entity list once
+    if (!state.entitiesSent && state.entities?.length && writer) {
+      writer({ type: "gridUpdate", entities: state.entities });
+      update.entitiesSent = true;
+    }
+
+    // 2. Emit incremental qualification summary updates
+    const currentSummaryCount = state.qualificationSummary?.length ?? 0;
+    const alreadySentCount = state.lastSentSummaryCount ?? 0;
+    if (currentSummaryCount > alreadySentCount && writer) {
+      const newQuals = state.qualificationSummary.slice(alreadySentCount);
+      if (newQuals.length > 0) {
+        writer({ type: "gridUpdate", qualificationSummary: newQuals });
+        update.lastSentSummaryCount = currentSummaryCount;
+      }
+    }
+
     const batchSize = 5;
     const totalEntities = state.entities?.length ?? 0;
     const currentProcessedCount = state.processedEntityCount ?? 0;
     const finishedBatchesCount = state.finishedBatches ?? 0;
-    const currentSummaryCount = state.qualificationSummary?.length ?? 0;
-    const lastSentSummaryCount = state.lastSentSummaryCount ?? 0;
-    const entitiesSent = state.entitiesSent ?? false;
 
     // Debug logging to track state
     console.log('QualificationRouter state:', {
       entitiesCount: totalEntities,
-      qualificationSummaryCount: currentSummaryCount,
+      qualificationSummaryCount: state.qualificationSummary?.length ?? 0,
       processedEntityCount: currentProcessedCount,
       finishedBatches: finishedBatchesCount,
-      lastSentSummaryCount: lastSentSummaryCount,
-      entitiesSent: entitiesSent,
       firstFewEntities: state.entities?.slice(0, 3).map(e => ({name: e.name, index: e.index, url: e.url})) ?? [],
       qualificationCriteria: state.qualificationCriteria,
     });
@@ -495,44 +509,9 @@ parentWorkflow.addNode(
       newProcessedEntityCount = Math.min(totalEntities, currentProcessedCount + entitiesToProcessWithCapacity);
     }
     
-    const update: Partial<ParentAppStateUpdate> = {};
     if (newProcessedEntityCount > currentProcessedCount) {
       update.processedEntityCount = newProcessedEntityCount;
       console.log(`QualificationRouter: Updating processedEntityCount from ${currentProcessedCount} to ${newProcessedEntityCount}`);
-    }
-
-    // Track entities sent to frontend for optimization
-    if (!entitiesSent && totalEntities > 0) {
-      update.entitiesSent = true;
-      console.log(`QualificationRouter: Marking entities as sent. Total entities: ${totalEntities}`);
-    }
-
-    // Track qualification summary updates for optimization
-    if (currentSummaryCount > lastSentSummaryCount) {
-      update.lastSentSummaryCount = currentSummaryCount;
-      console.log(`QualificationRouter: Updating lastSentSummaryCount from ${lastSentSummaryCount} to ${currentSummaryCount}`);
-    }
-
-    // Add a message with grid update information for frontend optimization
-    if (currentSummaryCount > lastSentSummaryCount || (!entitiesSent && totalEntities > 0)) {
-      const gridUpdateMessage = new AIMessage({
-        content: `Grid update: ${currentSummaryCount} qualifications for ${totalEntities} entities`,
-        additional_kwargs: {
-          grid_update: {
-            entities_count: totalEntities,
-            qualifications_count: currentSummaryCount,
-            entities_sent: !entitiesSent && totalEntities > 0,
-            new_qualifications: currentSummaryCount - lastSentSummaryCount,
-            timestamp: new Date().toISOString()
-          }
-        }
-      });
-      
-      if (!update.parentMessages) {
-        update.parentMessages = [gridUpdateMessage];
-      } else {
-        update.parentMessages = [...(Array.isArray(update.parentMessages) ? update.parentMessages : [update.parentMessages]), gridUpdateMessage];
-      }
     }
 
     return update; // Return potential update to processedEntityCount

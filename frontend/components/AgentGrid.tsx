@@ -1,7 +1,6 @@
 "use client";
 import React, { useMemo, useEffect, useState } from "react";
 import { useAgentRunCtx } from "@/app/providers/agent-run-provider";
-import { useOptimizedAgentRun } from "@/hooks/use-agent-run";
 import { useTheme } from "next-themes";
 import { AgentGridLoading } from "@/components/AgentGridLoading";
 import { AgGridReact } from "ag-grid-react";
@@ -40,17 +39,13 @@ type RowItem = {
   reasoning: string;
 };
 
-function AgentGridComponent({ threadId }: AgentGridProps) {
+function AgentGridComponent({}: AgentGridProps) {
   const { stream, isLoading } = useAgentRunCtx();
   const { resolvedTheme } = useTheme();
 
   // Wait until the component is mounted on the client to avoid SSR/CSR
   // mismatches (e.g. when the server renders with an unknown theme).
   const [mounted, setMounted] = useState(false);
-  
-  // Track previous data for optimization
-  const [lastEntityCount, setLastEntityCount] = useState(0);
-  const [lastQualificationCount, setLastQualificationCount] = useState(0);
   
   useEffect(() => {
     setMounted(true);
@@ -60,18 +55,6 @@ function AgentGridComponent({ threadId }: AgentGridProps) {
   const stateValues = stream?.values || {};
   const entities: Entity[] = stateValues.entities || [];
   const qualificationSummary: QualificationItem[] = stateValues.qualificationSummary || [];
-  
-  // Optimization: Only log when data actually changes to reduce noise
-  useEffect(() => {
-    const currentEntityCount = entities.length;
-    const currentQualificationCount = qualificationSummary.length;
-    
-    if (currentEntityCount !== lastEntityCount || currentQualificationCount !== lastQualificationCount) {
-      console.log(`AgentGrid data update: entities ${lastEntityCount} -> ${currentEntityCount}, qualifications ${lastQualificationCount} -> ${currentQualificationCount}`);
-      setLastEntityCount(currentEntityCount);
-      setLastQualificationCount(currentQualificationCount);
-    }
-  }, [entities.length, qualificationSummary.length, lastEntityCount, lastQualificationCount]);
 
   // Build the appropriate AG Grid theme object
   const gridTheme = useMemo(() => {
@@ -80,26 +63,16 @@ function AgentGridComponent({ threadId }: AgentGridProps) {
       : themeAlpine;
   }, [resolvedTheme]);
 
-  // Build row data for AG Grid - optimized with qualification map for better performance
+  // Build row data for AG Grid
   const rowData: RowItem[] = useMemo(() => {
-    console.log(`AgentGrid: Rebuilding rowData with ${entities.length} entities and ${qualificationSummary.length} qualifications`);
-    
-    // Create a map for faster qualification lookups
-    const qualificationMap = new Map<number, QualificationItem>();
-    qualificationSummary.forEach(qual => {
-      if (qual && typeof qual.index === 'number') {
-        qualificationMap.set(qual.index, qual);
-      }
-    });
-    
     return entities.map((e) => {
-      const qual = qualificationMap.get(e.index);
+      const qual: Partial<QualificationItem> = qualificationSummary.find((q) => q.index === e.index) || {};
       return {
         index: e.index,
         name: e.name,
         url: e.url,
-        qualified: qual?.qualified ?? null,
-        reasoning: qual?.reasoning || "",
+        qualified: qual.qualified ?? null,
+        reasoning: qual.reasoning || "",
       };
     });
   }, [entities, qualificationSummary]);
