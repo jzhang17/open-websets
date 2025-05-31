@@ -79,8 +79,8 @@ const HighlightedPre = React.memo(
       <pre {...props}>
         <code>
           {highlightedTokens.map((line, lineIndex) => (
-            <>
-              <span key={lineIndex}>
+            <React.Fragment key={lineIndex}>
+              <span>
                 {line.map((token: any, tokenIndex: number) => {
                   const style =
                     typeof token.htmlStyle === "string"
@@ -99,7 +99,7 @@ const HighlightedPre = React.memo(
                 })}
               </span>
               {lineIndex !== highlightedTokens.length - 1 && "\n"}
-            </>
+            </React.Fragment>
           ))}
         </code>
       </pre>
