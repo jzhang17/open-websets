@@ -148,6 +148,22 @@ const ParentAppStateAnnotation = Annotation.Root({
     reducer: (_currentState, updateValue) => updateValue,
     default: () => [],
   }),
+  entitiesSent: Annotation<boolean>({
+    reducer: (currentState, updateValue) => {
+      const current = typeof currentState === "boolean" ? currentState : false;
+      const update = typeof updateValue === "boolean" ? updateValue : false;
+      return current || update;
+    },
+    default: () => false,
+  }),
+  lastSentSummaryCount: Annotation<number>({
+    reducer: (currentState, updateValue) => {
+      const current = typeof currentState === "number" ? currentState : 0;
+      const update = typeof updateValue === "number" ? updateValue : 0;
+      return Math.max(current, update);
+    },
+    default: () => 0,
+  }),
 });
 
 // Define types for state and update based on the annotation
@@ -437,13 +453,18 @@ parentWorkflow.addNode(
     const totalEntities = state.entities?.length ?? 0;
     const currentProcessedCount = state.processedEntityCount ?? 0;
     const finishedBatchesCount = state.finishedBatches ?? 0;
+    const currentSummaryCount = state.qualificationSummary?.length ?? 0;
+    const lastSentSummaryCount = state.lastSentSummaryCount ?? 0;
+    const entitiesSent = state.entitiesSent ?? false;
 
     // Debug logging to track state
     console.log('QualificationRouter state:', {
       entitiesCount: totalEntities,
-      qualificationSummaryCount: state.qualificationSummary?.length ?? 0,
+      qualificationSummaryCount: currentSummaryCount,
       processedEntityCount: currentProcessedCount,
       finishedBatches: finishedBatchesCount,
+      lastSentSummaryCount: lastSentSummaryCount,
+      entitiesSent: entitiesSent,
       firstFewEntities: state.entities?.slice(0, 3).map(e => ({name: e.name, index: e.index, url: e.url})) ?? [],
       qualificationCriteria: state.qualificationCriteria,
     });
@@ -478,6 +499,40 @@ parentWorkflow.addNode(
     if (newProcessedEntityCount > currentProcessedCount) {
       update.processedEntityCount = newProcessedEntityCount;
       console.log(`QualificationRouter: Updating processedEntityCount from ${currentProcessedCount} to ${newProcessedEntityCount}`);
+    }
+
+    // Track entities sent to frontend for optimization
+    if (!entitiesSent && totalEntities > 0) {
+      update.entitiesSent = true;
+      console.log(`QualificationRouter: Marking entities as sent. Total entities: ${totalEntities}`);
+    }
+
+    // Track qualification summary updates for optimization
+    if (currentSummaryCount > lastSentSummaryCount) {
+      update.lastSentSummaryCount = currentSummaryCount;
+      console.log(`QualificationRouter: Updating lastSentSummaryCount from ${lastSentSummaryCount} to ${currentSummaryCount}`);
+    }
+
+    // Add a message with grid update information for frontend optimization
+    if (currentSummaryCount > lastSentSummaryCount || (!entitiesSent && totalEntities > 0)) {
+      const gridUpdateMessage = new AIMessage({
+        content: `Grid update: ${currentSummaryCount} qualifications for ${totalEntities} entities`,
+        additional_kwargs: {
+          grid_update: {
+            entities_count: totalEntities,
+            qualifications_count: currentSummaryCount,
+            entities_sent: !entitiesSent && totalEntities > 0,
+            new_qualifications: currentSummaryCount - lastSentSummaryCount,
+            timestamp: new Date().toISOString()
+          }
+        }
+      });
+      
+      if (!update.parentMessages) {
+        update.parentMessages = [gridUpdateMessage];
+      } else {
+        update.parentMessages = [...(Array.isArray(update.parentMessages) ? update.parentMessages : [update.parentMessages]), gridUpdateMessage];
+      }
     }
 
     return update; // Return potential update to processedEntityCount
