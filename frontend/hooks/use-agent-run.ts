@@ -92,6 +92,7 @@ export function useLangGraphStreamAndSend({
     recursionLimit: 50,
     reconnect: true,
     reconnectDelay: 1000,
+    reconnectOnMount: true,
     onThreadId,
   } as UseStreamOptions<AgentState, { UpdateType: AgentUpdate }>);
 
