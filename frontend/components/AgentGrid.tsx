@@ -80,7 +80,7 @@ function AgentGridComponent({}: AgentGridProps) {
   // Define column definitions
   const columnDefs: ColDef<RowItem>[] = useMemo(() => [
     { field: "index", headerName: "Index", sortable: true, hide: true },
-    { field: "name", headerName: "Name", sortable: true, flex: 1 },
+    { field: "name", headerName: "Name", sortable: true, flex: 1, wrapText: true },
     {
       field: "url",
       headerName: "URL",
@@ -123,11 +123,12 @@ function AgentGridComponent({}: AgentGridProps) {
         return 0; // A and B are of equal priority for sorting
       },
     },
-    { 
-      field: "reasoning", 
-      headerName: "Reasoning", 
-      flex: 3, 
+    {
+      field: "reasoning",
+      headerName: "Reasoning",
+      flex: 3,
       wrapText: true,
+      autoHeight: true,
       cellRenderer: (params: { data: RowItem }) => {
         // Show "pending research" in italics if entity hasn't been qualified yet
         if (params.data.qualified === null) {
