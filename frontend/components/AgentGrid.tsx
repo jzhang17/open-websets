@@ -8,6 +8,7 @@ import {
   ModuleRegistry,
   AllCommunityModule,
   ColDef,
+  CellStyle,
   themeAlpine,
   colorSchemeDark,
 } from "ag-grid-community";
@@ -40,7 +41,7 @@ type RowItem = {
 };
 
 function AgentGridComponent({}: AgentGridProps) {
-  const { stream, isLoading } = useAgentRunCtx();
+  const { stream } = useAgentRunCtx();
   const { resolvedTheme } = useTheme();
 
   // Wait until the component is mounted on the client to avoid SSR/CSR
@@ -80,12 +81,20 @@ function AgentGridComponent({}: AgentGridProps) {
   // Define column definitions
   const columnDefs: ColDef<RowItem>[] = useMemo(() => [
     { field: "index", headerName: "Index", sortable: true, hide: true },
-    { field: "name", headerName: "Name", sortable: true, flex: 1, wrapText: true },
+    {
+      field: "name",
+      headerName: "Name",
+      sortable: true,
+      flex: 1,
+      wrapText: true,
+      cellStyle: { lineHeight: "1.5" } as CellStyle,
+    },
     {
       field: "url",
       headerName: "URL",
       sortable: true,
       flex: 2,
+      cellStyle: { lineHeight: "1.5" } as CellStyle,
       cellRenderer: (params: { value: string }) => (
         <a href={params.value} target="_blank" rel="noopener noreferrer">
           {params.value}
@@ -98,6 +107,15 @@ function AgentGridComponent({}: AgentGridProps) {
       sortable: true,
       sort: "asc",
       flex: 1,
+      cellStyle: { display: "flex", alignItems: "flex-start" } as CellStyle,
+      cellRenderer: (params: { value: boolean | null }) => (
+        <input
+          type="checkbox"
+          checked={params.value === true}
+          readOnly
+          style={{ alignSelf: "flex-start" }}
+        />
+      ),
       comparator: (valueA: boolean | null, valueB: boolean | null) => {
         // Desired sort order: true, then false, then null.
         // Map values to numbers where a smaller number means higher sort priority.
@@ -129,6 +147,7 @@ function AgentGridComponent({}: AgentGridProps) {
       flex: 3,
       wrapText: true,
       autoHeight: true,
+      cellStyle: { lineHeight: "1.5" } as CellStyle,
       cellRenderer: (params: { data: RowItem }) => {
         // Show "pending research" in italics if entity hasn't been qualified yet
         if (params.data.qualified === null) {
