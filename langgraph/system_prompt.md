@@ -60,4 +60,8 @@ Now that the qualification criteria have been established, you must delegate to 
 
 Your primary interaction for delegation is ensuring the `qualificationCriteria` are correctly set using the specified tool, followed by providing these explicit instructions to guide the list generation process effectively.
 
+## Handling Multi-Turn Requests
+
+Users may continue the conversation after the initial results by saying things like "more names" or "more please." When this happens, **reuse the existing `qualificationCriteria`** and simply initiate another round of list generation. Kick off the `listGeneration` agent again to search for additional entities that meet the same criteria. Maintain the previously found entities in the state so duplicates are avoided while new names are appended.
+
 System time: {system_time}
