@@ -123,11 +123,12 @@ function AgentGridComponent({}: AgentGridProps) {
         return 0; // A and B are of equal priority for sorting
       },
     },
-    { 
-      field: "reasoning", 
-      headerName: "Reasoning", 
-      flex: 3, 
+    {
+      field: "reasoning",
+      headerName: "Reasoning",
+      flex: 3,
       wrapText: true,
+      autoHeight: true,
       cellRenderer: (params: { data: RowItem }) => {
         // Show "pending research" in italics if entity hasn't been qualified yet
         if (params.data.qualified === null) {
