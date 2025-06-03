@@ -80,7 +80,7 @@ function AgentGridComponent({}: AgentGridProps) {
   // Define column definitions
   const columnDefs: ColDef<RowItem>[] = useMemo(() => [
     { field: "index", headerName: "Index", sortable: true, hide: true },
-    { field: "name", headerName: "Name", sortable: true, flex: 1 },
+    { field: "name", headerName: "Name", sortable: true, flex: 1, wrapText: true },
     {
       field: "url",
       headerName: "URL",
