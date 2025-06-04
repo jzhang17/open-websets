@@ -88,6 +88,7 @@ function AgentGridComponent({}: AgentGridProps) {
       flex: 1,
       wrapText: true,
       cellStyle: { lineHeight: "1.5", padding: "4px 12px" } as CellStyle,
+
     },
     {
       field: "url",
@@ -112,6 +113,7 @@ function AgentGridComponent({}: AgentGridProps) {
         alignItems: "flex-start",
         justifyContent: "center",
         padding: "4px 12px",
+
       } as CellStyle,
       cellRenderer: (params: { value: boolean | null }) => (
         <input
@@ -153,6 +155,7 @@ function AgentGridComponent({}: AgentGridProps) {
       wrapText: true,
       autoHeight: true,
       cellStyle: { lineHeight: "1.5", padding: "4px 12px" } as CellStyle,
+      cellStyle: { lineHeight: "1.5", padding: "4px" } as CellStyle,
       cellRenderer: (params: { data: RowItem }) => {
         // Show "pending research" in italics if entity hasn't been qualified yet
         if (params.data.qualified === null) {
