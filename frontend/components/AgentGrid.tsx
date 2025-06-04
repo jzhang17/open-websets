@@ -87,6 +87,7 @@ function AgentGridComponent({}: AgentGridProps) {
       sortable: true,
       flex: 1,
       wrapText: true,
+      autoHeight: true,
       cellStyle: { lineHeight: "1.5", padding: "4px 12px" } as CellStyle,
     },
     {
