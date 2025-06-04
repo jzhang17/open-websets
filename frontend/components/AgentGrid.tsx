@@ -87,14 +87,14 @@ function AgentGridComponent({}: AgentGridProps) {
       sortable: true,
       flex: 1,
       wrapText: true,
-      cellStyle: { lineHeight: "1.5", padding: "4px" } as CellStyle,
+      cellStyle: { lineHeight: "1.5", padding: "4px 12px" } as CellStyle,
     },
     {
       field: "url",
       headerName: "URL",
       sortable: true,
       flex: 2,
-      cellStyle: { lineHeight: "1.5", padding: "4px" } as CellStyle,
+      cellStyle: { lineHeight: "1.5", padding: "4px 12px" } as CellStyle,
       cellRenderer: (params: { value: string }) => (
         <a href={params.value} target="_blank" rel="noopener noreferrer">
           {params.value}
@@ -111,14 +111,14 @@ function AgentGridComponent({}: AgentGridProps) {
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
-        padding: "4px",
+        padding: "4px 12px",
       } as CellStyle,
       cellRenderer: (params: { value: boolean | null }) => (
         <input
           type="checkbox"
           checked={params.value === true}
           readOnly
-          style={{ alignSelf: "flex-start", marginTop: "2px" }}
+          style={{ alignSelf: "flex-start", marginTop: "2px", padding: "4px" }}
         />
       ),
       comparator: (valueA: boolean | null, valueB: boolean | null) => {
@@ -152,7 +152,7 @@ function AgentGridComponent({}: AgentGridProps) {
       flex: 3,
       wrapText: true,
       autoHeight: true,
-      cellStyle: { lineHeight: "1.5", padding: "4px" } as CellStyle,
+      cellStyle: { lineHeight: "1.5", padding: "4px 12px" } as CellStyle,
       cellRenderer: (params: { data: RowItem }) => {
         // Show "pending research" in italics if entity hasn't been qualified yet
         if (params.data.qualified === null) {
@@ -182,7 +182,7 @@ function AgentGridComponent({}: AgentGridProps) {
           theme={gridTheme}
           rowData={rowData}
           columnDefs={columnDefs}
-          defaultColDef={{ flex: 1, sortable: true, filter: true, cellStyle: { padding: "4px" } as CellStyle }}
+          defaultColDef={{ flex: 1, sortable: true, filter: true, cellStyle: { padding: "4px 12px" } as CellStyle }}
           domLayout="autoHeight"
         />
       </div>
