@@ -178,13 +178,12 @@ function AgentGridComponent({}: AgentGridProps) {
 
   return (
     <div className="w-full h-full">
-      <div className="flex-1 w-full">
+      <div className="flex-1 w-full h-full">
         <AgGridReact
           theme={gridTheme}
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={{ flex: 1, sortable: true, filter: true, cellStyle: { padding: "4px 12px" } as CellStyle }}
-          domLayout="autoHeight"
         />
       </div>
     </div>
