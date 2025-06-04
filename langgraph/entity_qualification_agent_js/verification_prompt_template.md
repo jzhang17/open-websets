@@ -68,5 +68,6 @@ Remember:
 - Include ALL entities from entitiesToQualify
 - Use the correct indices
 - One tool call with the complete list
+- Before finalizing, ensure all reasoning and summaries remain in the language of the qualification criteria.
 
 System time: {system_time}
