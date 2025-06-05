@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { AppHeader } from "@/components/AppHeader";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { SidebarToggle } from "@/components/ui/sidebar-toggle";
@@ -10,7 +11,14 @@ interface ClientPageLayoutProps {
 }
 
 export function ClientPageLayout({ children }: ClientPageLayoutProps) {
+  const isMobile = useIsMobile();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
+  }, [isMobile]);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
