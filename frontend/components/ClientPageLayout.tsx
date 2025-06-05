@@ -1,3 +1,4 @@
+import { useIsMobile } from "@/hooks/use-mobile";
 "use client";
 
 import { useState, ReactNode } from "react";
@@ -10,7 +11,8 @@ interface ClientPageLayoutProps {
 }
 
 export function ClientPageLayout({ children }: ClientPageLayoutProps) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const isMobile = useIsMobile();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
