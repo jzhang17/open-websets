@@ -1,6 +1,6 @@
-import { useIsMobile } from "@/hooks/use-mobile";
 "use client";
 
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useState, ReactNode } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { ChatSidebar } from "@/components/ChatSidebar";
