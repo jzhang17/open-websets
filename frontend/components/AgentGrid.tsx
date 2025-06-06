@@ -88,7 +88,11 @@ function AgentGridComponent({}: AgentGridProps) {
       flex: 1,
       wrapText: true,
       autoHeight: true,
-      cellStyle: { lineHeight: "1.5", padding: "4px 12px" } as CellStyle,
+      cellStyle: {
+        lineHeight: "1.5",
+        padding: "4px 12px",
+        wordBreak: "normal",
+      } as CellStyle,
     },
     {
       field: "url",
