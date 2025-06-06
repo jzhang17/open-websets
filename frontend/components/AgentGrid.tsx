@@ -78,6 +78,23 @@ function AgentGridComponent({}: AgentGridProps) {
     });
   }, [entities, qualificationSummary]);
 
+  // Determine the length of the longest word in the "name" column so we can
+  // size the column to fit it without breaking the word.
+  const longestNameWordLength = useMemo(() => {
+    let maxWord = 0;
+    for (const { name } of entities) {
+      const words = name.split(/\s+/);
+      for (const w of words) {
+        if (w.length > maxWord) {
+          maxWord = w.length;
+        }
+      }
+    }
+    return maxWord;
+  }, [entities]);
+
+  const nameColumnMinWidth = longestNameWordLength * 8 + 24; // approx char width
+
   // Define column definitions
   const columnDefs: ColDef<RowItem>[] = useMemo(() => [
     { field: "index", headerName: "Index", sortable: true, hide: true },
@@ -88,7 +105,12 @@ function AgentGridComponent({}: AgentGridProps) {
       flex: 1,
       wrapText: true,
       autoHeight: true,
-      cellStyle: { lineHeight: "1.5", padding: "4px 12px" } as CellStyle,
+      minWidth: nameColumnMinWidth,
+      cellStyle: {
+        lineHeight: "1.5",
+        padding: "4px 12px",
+        wordBreak: "break-word",
+      } as CellStyle,
     },
     {
       field: "url",
@@ -162,7 +184,7 @@ function AgentGridComponent({}: AgentGridProps) {
         return params.data.reasoning;
       }
     },
-  ], []);
+  ], [nameColumnMinWidth]);
 
   if (!mounted) {
     return null;
