@@ -3,6 +3,7 @@ import React, { useMemo, useEffect, useState } from "react";
 import { useAgentRunCtx } from "@/app/providers/agent-run-provider";
 import { useTheme } from "next-themes";
 import { AgentGridLoading } from "@/components/AgentGridLoading";
+import { CircleCheck, CircleX } from "lucide-react";
 import { AgGridReact } from "ag-grid-react";
 import {
   ModuleRegistry,
@@ -136,14 +137,15 @@ function AgentGridComponent({}: AgentGridProps) {
         justifyContent: "center",
         padding: "4px 12px",
       } as CellStyle,
-      cellRenderer: (params: { value: boolean | null }) => (
-        <input
-          type="checkbox"
-          checked={params.value === true}
-          readOnly
-          style={{ alignSelf: "flex-start", marginTop: "2px", padding: "4px" }}
-        />
-      ),
+      cellRenderer: (params: { value: boolean | null }) => {
+        if (params.value === true) {
+          return <CircleCheck className="text-green-500" />;
+        }
+        if (params.value === false) {
+          return <CircleX className="text-destructive" />;
+        }
+        return null;
+      },
       comparator: (valueA: boolean | null, valueB: boolean | null) => {
         // Desired sort order: true, then false, then null.
         // Map values to numbers where a smaller number means higher sort priority.
