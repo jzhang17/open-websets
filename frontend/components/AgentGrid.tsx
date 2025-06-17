@@ -80,11 +80,14 @@ function AgentGridComponent({}: AgentGridProps) {
   }, [entities, qualificationSummary]);
 
   // Determine the length of the longest word in the "name" column so we can
-  // size the column to fit it without breaking the word.
+  // size the column to fit it without breaking the word. Treat hyphen ("-"),
+  // slash ("/"), and underscore ("_") as possible line breaks to avoid
+  // overly wide columns for compound names.
   const longestNameWordLength = useMemo(() => {
     let maxWord = 0;
     for (const { name } of entities) {
-      const words = name.split(/\s+/);
+      // Split on whitespace, hyphen, slash or underscore so compound words can wrap
+      const words = name.split(/[\s\-/_]+|[–—]/);
       for (const w of words) {
         if (w.length > maxWord) {
           maxWord = w.length;
